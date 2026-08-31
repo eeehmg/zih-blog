@@ -1151,7 +1151,7 @@
         // ============================================================
         const MUSIC_KEY = 'ZIH_music';
         // 默认音乐：放在 assets/music/bgm.mp3
-        const DEFAULT_MUSIC = { src: 'assets/music/bgm.mp3', name: '默认背景音乐', volume: 0.8, playing: false };
+        const DEFAULT_MUSIC = { src: 'assets/music/bgm.mp3', name: '默认背景音乐', volume: 0.8, playing: false, loop: true };
 
         function getMusicData() {
             const stored = localStorage.getItem(MUSIC_KEY);
@@ -1192,6 +1192,7 @@
                     playBtn.classList.remove('paused');
                 };
                 audioPlayer.src = data.src;
+                audioPlayer.loop = data.loop !== false; // 默认循环
                 audioPlayer.load();
                 isLoaded = true;
                 musicControls.classList.add('show');
@@ -1201,6 +1202,8 @@
                     audioPlayer.volume = data.volume;
                     volumeSlider.value = data.volume;
                 }
+                const loopBtn = document.getElementById('loopBtn');
+                if (loopBtn) loopBtn.classList.toggle('active', audioPlayer.loop);
                 if (data.playing) {
                     playBtn.textContent = '▶ 播放';
                     playBtn.classList.remove('paused');
@@ -1281,6 +1284,16 @@
             musicUploadArea.style.display = 'none';
         });
         audioPlayer.addEventListener('ended', function() {
+            // loop=true 时浏览器会自动重播，一般不会进 ended；兜底再播一次
+            if (audioPlayer.loop) {
+                isPlaying = true;
+                playBtn.textContent = '⏸ 暂停';
+                playBtn.classList.add('paused');
+                musicStatus.textContent = '循环播放中';
+                audioPlayer.currentTime = 0;
+                audioPlayer.play().catch(() => {});
+                return;
+            }
             isPlaying = false;
             playBtn.textContent = '▶ 播放';
             playBtn.classList.remove('paused');
@@ -1302,7 +1315,7 @@
             reader.onload = function(ev) {
                 const dataUrl = ev.target.result;
                 const musicData = { src: dataUrl, name: file.name, volume: parseFloat(volumeSlider.value) || 0.8,
-                    playing: false };
+                    playing: false, loop: true };
                 saveMusicData(musicData);
                 loadMusic();
                 isLoaded = true;
@@ -1335,6 +1348,27 @@
         });
 
         playBtn.addEventListener('click', togglePlay);
+
+        // 循环开关（默认开启）
+        const loopBtn = document.getElementById('loopBtn');
+        if (loopBtn) {
+            audioPlayer.loop = true;
+            loopBtn.classList.add('active');
+            loopBtn.addEventListener('click', function() {
+                audioPlayer.loop = !audioPlayer.loop;
+                this.classList.toggle('active', audioPlayer.loop);
+                const data = getMusicData();
+                if (data) {
+                    data.loop = audioPlayer.loop;
+                    saveMusicData(data);
+                }
+                musicStatus.textContent = audioPlayer.loop ? '已开启循环' : '已关闭循环';
+                setTimeout(() => {
+                    if (isPlaying) musicStatus.textContent = '播放中';
+                    else if (isLoaded) musicStatus.textContent = data?.name || '已加载';
+                }, 1200);
+            });
+        }
 
         // ============================================================
         // 8. AI 在线客服

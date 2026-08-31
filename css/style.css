@@ -2840,3 +2840,20 @@
             }
         }
     
+        .loop-btn {
+            background: none;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 2px 8px;
+            cursor: pointer;
+            font-size: 14px;
+            opacity: 0.45;
+            transition: opacity .2s, border-color .2s, background .2s;
+            line-height: 1.4;
+        }
+        .loop-btn:hover { opacity: 0.8; border-color: var(--teal); }
+        .loop-btn.active {
+            opacity: 1;
+            border-color: var(--teal);
+            background: rgba(23, 182, 166, 0.12);
+        }
