@@ -1,0 +1,2091 @@
+
+        // ============================================================
+        // 0. Profile 管理
+        // ============================================================
+        const PROFILE_KEY = 'ZIH_profile';
+
+        function getProfile() {
+            const stored = localStorage.getItem(PROFILE_KEY);
+            if (stored) {
+                try { return JSON.parse(stored); } catch (_) {}
+            }
+            const defaults = { avatar: '', name: 'ZIH' };
+            localStorage.setItem(PROFILE_KEY, JSON.stringify(defaults));
+            return defaults;
+        }
+
+        function saveProfile(profile) {
+            localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+        }
+
+        function renderProfile() {
+            const profile = getProfile();
+            const nameEl = document.getElementById('profileName');
+            const imgEl = document.getElementById('avatarImg');
+            const svgEl = document.querySelector('#avatarContent svg');
+            if (nameEl) nameEl.textContent = profile.name || 'ZIH';
+            if (profile.avatar) {
+                imgEl.src = profile.avatar;
+                imgEl.style.display = 'block';
+                if (svgEl) svgEl.style.display = 'none';
+            } else {
+                imgEl.style.display = 'none';
+                imgEl.src = '';
+                if (svgEl) svgEl.style.display = 'block';
+            }
+        }
+
+        const avatarWrapper = document.getElementById('avatarUpload');
+        const avatarInput = document.getElementById('avatarInput');
+        avatarWrapper.addEventListener('click', function(e) { e.stopPropagation();
+            avatarInput.click(); });
+        avatarInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) { alert('请选择图片文件');
+                avatarInput.value = ''; return; }
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const dataUrl = ev.target.result;
+                const profile = getProfile();
+                profile.avatar = dataUrl;
+                saveProfile(profile);
+                renderProfile();
+                avatarInput.value = '';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        const nameEl = document.getElementById('profileName');
+        nameEl.addEventListener('blur', function() {
+            const newName = this.textContent.trim() || 'ZIH';
+            if (this.textContent.trim() === '') this.textContent = 'ZIH';
+            const profile = getProfile();
+            profile.name = this.textContent.trim();
+            saveProfile(profile);
+        });
+        nameEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault();
+                this.blur(); } });
+        nameEl.addEventListener('input', function() {
+            if (this.textContent.length > 20) {
+                this.textContent = this.textContent.slice(0, 20);
+                const range = document.createRange();
+                range.selectNodeContents(this);
+                range.collapse(false);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        });
+
+        // ============================================================
+        // 1. 文章数据管理
+        // ============================================================
+        const STORAGE_KEY = 'ZIH_posts';
+        const defaultPosts = [
+            { id: 1, title: '自然拼读入门：一文带你解锁英语声音的底层代码', category: '英语体系', summary: '深入浅出讲解自然拼读规则，适合初学者。', coverColor: 'teal',
+                date: '2025-8-9', comments: 0, views: 0, type: 'article', content: '<p>自然拼读是英语学习的核心基础...本文详细讲解了自然拼读的规则和应用。</p>' },
+            { id: 2, title: 'Java 微服务（一）：1.0 Spring6 框架 - 为简化开发而生', category: 'Java 微服务篇',
+                summary: 'Spring6 新特性及微服务入门实践。', coverColor: 'dark', date: '2025-8-9', comments: 0, views: 0, type: 'article',
+                content: '<p>Spring6 带来了全新的微服务架构体验...本篇从基础开始讲解。</p>' },
+            { id: 3, title: 'Coze 三方平台使用教程：从入门到核心概念', category: 'Coze 系列', summary: '全面介绍 Coze 平台的搭建与核心功能。',
+                coverColor: 'amber', date: '2025-8-2', comments: 0, views: 0, type: 'article',
+                content: '<p>Coze 平台是新一代AI应用开发平台...本文带你快速上手。</p>' },
+            { id: 4, title: '第四小节：VERS/VERT 家族——方向一转，意义千变', category: '英语词根词缀打卡篇',
+                summary: '深入剖析 VERS/VERT 词根家族。', coverColor: 'violet', date: '2 天前', comments: 0, views: 0, type: 'news',
+                content: '<p>VERS/VERT 是英语中非常重要的词根家族...今天我们来系统学习。</p>' }
+        ];
+
+        function getPosts() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    const posts = JSON.parse(stored);
+                    posts.forEach(p => { if (p.views === undefined) p.views = 0; if (p.type === undefined) p.type = 'article'; if (p
+                            .content === undefined) p.content = ''; });
+                    return posts;
+                } catch (_) {}
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultPosts));
+            return defaultPosts;
+        }
+
+        function savePosts(posts) { localStorage.setItem(STORAGE_KEY, JSON.stringify(posts)); }
+
+        function genId() { return Date.now() + Math.floor(Math.random() * 1000); }
+
+        function incrementViews(postId) {
+            const posts = getPosts();
+            const post = posts.find(p => p.id === postId);
+            if (post) { post.views = (post.views || 0) + 1;
+                savePosts(posts); }
+            return post;
+        }
+
+        let currentCategory = '全部';
+
+        function getAllCategories(posts) {
+            const cats = new Set();
+            posts.forEach(p => { if (p.category) cats.add(p.category); });
+            return ['全部', ...Array.from(cats)];
+        }
+
+        function getCategoryCount(posts, category) {
+            if (category === '全部') return posts.length;
+            return posts.filter(p => p.category === category).length;
+        }
+
+        function filterPosts(posts, category) {
+            if (category === '全部') return posts;
+            return posts.filter(p => p.category === category);
+        }
+
+        function renderGrid(posts, category) {
+            const container = document.getElementById('post-grid');
+            const filtered = filterPosts(posts, category);
+            if (filtered.length === 0) {
+                container.innerHTML =
+                    `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">该分类下暂无内容，去写一篇吧！</p>`;
+                return;
+            }
+            let html = '';
+            filtered.forEach(p => {
+                const coverText = p.title.length > 8 ? p.title.slice(0, 8) + '…' : p.title;
+                const views = p.views || 0;
+                const typeLabel = p.type === 'news' ? '📰 新闻' : '📝 文章';
+                const typeClass = p.type === 'news' ? 'news' : 'article';
+                html += `
+                    <article class="post" data-id="${p.id}">
+                        <div class="click-area" onclick="openDetail(${p.id})">
+                            <div class="cover color-${p.coverColor}">${coverText}</div>
+                            <div class="body">
+                                <div class="kick">
+                                    <span class="type-badge ${typeClass}">${typeLabel}</span>
+                                    # ${p.category}
+                                </div>
+                                <h3>${p.title}</h3>
+                                ${p.summary ? `<div class="summary">${p.summary}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="foot">
+                            <span>${p.comments || 0} 条评论 · ${p.date || '刚刚'}</span>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span class="views">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                        <circle cx="12" cy="12" r="3" />
+                                    </svg>
+                                    ${views}
+                                </span>
+                                <button class="delete-btn" onclick="deletePost(${p.id})" title="删除文章">🗑️</button>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderRecent(posts) {
+            const container = document.getElementById('recent-posts');
+            const sorted = [...posts].sort((a, b) => b.id - a.id);
+            const recent = sorted.slice(0, 3);
+            if (recent.length === 0) {
+                container.innerHTML = '<p style="font-size:12px;color:var(--ink-faint);">暂无发布</p>';
+                return;
+            }
+            let html = '';
+            recent.forEach((p, idx) => {
+                const thumbClass = idx % 2 === 0 ? '' : 'b';
+                html += `
+                    <div class="postmini">
+                        <div class="thumb ${thumbClass}"></div>
+                        <p>${p.title}</p>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderPillbar(posts, activeCategory) {
+            const container = document.getElementById('pillbar');
+            const categories = getAllCategories(posts);
+            let html = '';
+            categories.forEach(cat => {
+                const count = getCategoryCount(posts, cat);
+                const activeClass = (cat === activeCategory) ? 'active' : '';
+                html += `<span class="pill ${activeClass}" data-category="${cat}">${cat} <span style="font-weight:400;opacity:0.6;font-size:11px;">${count}</span></span>`;
+            });
+            html += `<span class="pill" style="color:var(--ink-faint);cursor:default;">更多 »</span>`;
+            container.innerHTML = html;
+            container.querySelectorAll('.pill[data-category]').forEach(el => {
+                el.addEventListener('click', function() {
+                    const cat = this.dataset.category;
+                    if (cat) setCategory(cat);
+                });
+            });
+        }
+
+        function renderMenuCategories(posts, activeCategory) {
+            const container = document.getElementById('menuBody');
+            const categories = getAllCategories(posts);
+            let html = `<div class="menu-label">📂 所有分类</div>`;
+            categories.forEach(cat => {
+                const count = getCategoryCount(posts, cat);
+                const activeClass = (cat === activeCategory) ? 'active' : '';
+                html += `
+                    <div class="menu-item ${activeClass}" data-category="${cat}">
+                        <span class="dot"></span>
+                        <span>${cat}</span>
+                        <span class="count">${count}</span>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+            container.querySelectorAll('.menu-item').forEach(el => {
+                el.addEventListener('click', function() {
+                    const cat = this.dataset.category;
+                    if (cat) { setCategory(cat);
+                        closeMenu(); }
+                });
+            });
+            document.getElementById('menuTotalPosts').textContent = posts.length;
+        }
+
+        function setCategory(category) {
+            currentCategory = category;
+            const posts = getPosts();
+            renderGrid(posts, category);
+            renderPillbar(posts, category);
+            renderMenuCategories(posts, category);
+            document.getElementById('total-articles').textContent = posts.length;
+        }
+
+        function renderAll() {
+            const posts = getPosts();
+            renderGrid(posts, currentCategory);
+            renderRecent(posts);
+            renderPillbar(posts, currentCategory);
+            renderMenuCategories(posts, currentCategory);
+            document.getElementById('total-articles').textContent = posts.length;
+            document.getElementById('menuTotalPosts').textContent = posts.length;
+        }
+
+        function deletePost(id) {
+            if (!confirm('确定要删除此文章吗？此操作不可撤销。')) return;
+            let posts = getPosts();
+            posts = posts.filter(p => p.id !== id);
+            savePosts(posts);
+            const filtered = filterPosts(posts, currentCategory);
+            if (filtered.length === 0 && currentCategory !== '全部') { currentCategory = '全部'; }
+            renderAll();
+        }
+
+        // ============================================================
+        // 2. 文章详情查看
+        // ============================================================
+        function openDetail(id) {
+            const posts = getPosts();
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+            // 增加阅读量
+            incrementViews(id);
+            // 更新视图中的阅读量
+            const viewsSpan = document.querySelector(`.post[data-id="${id}"] .views`);
+            if (viewsSpan) {
+                const newViews = (post.views || 0) + 1;
+                viewsSpan.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    ${newViews}
+                `;
+            }
+
+            const modal = document.getElementById('detailModal');
+            document.getElementById('detailTitle').textContent = post.title;
+            document.getElementById('detailCategory').textContent = '# ' + post.category;
+            document.getElementById('detailDate').textContent = post.date || '刚刚';
+            document.getElementById('detailViews').textContent = (post.views || 0) + 1;
+            const badge = document.getElementById('detailBadge');
+            if (post.type === 'news') {
+                badge.textContent = '📰 新闻';
+                badge.className = 'badge news';
+            } else {
+                badge.textContent = '📝 文章';
+                badge.className = 'badge article';
+            }
+            const content = post.content || '<p>暂无正文内容</p>';
+            document.getElementById('detailContent').innerHTML = content;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        document.getElementById('closeDetailBtn').addEventListener('click', function() {
+            document.getElementById('detailModal').classList.remove('active');
+            document.body.style.overflow = '';
+        });
+        document.getElementById('closeDetailBtn2').addEventListener('click', function() {
+            document.getElementById('detailModal').classList.remove('active');
+            document.body.style.overflow = '';
+        });
+        document.getElementById('detailModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+
+        // ============================================================
+        // 3. 发布文章（增强版）
+        // ============================================================
+        const publishModal = document.getElementById('publishModal');
+        const editorContent = document.getElementById('editorContent');
+        let selectedType = 'article';
+
+        // 类型切换
+        document.querySelectorAll('.type-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                selectedType = this.dataset.type;
+            });
+        });
+
+        // 编辑器工具栏
+        document.querySelectorAll('.editor-toolbar button').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const cmd = this.dataset.cmd;
+                const editor = editorContent;
+                editor.focus();
+
+                switch (cmd) {
+                    case 'bold':
+                        document.execCommand('bold', false, null);
+                        break;
+                    case 'italic':
+                        document.execCommand('italic', false, null);
+                        break;
+                    case 'underline':
+                        document.execCommand('underline', false, null);
+                        break;
+                    case 'h2':
+                        document.execCommand('formatBlock', false, '<h2>');
+                        break;
+                    case 'h3':
+                        document.execCommand('formatBlock', false, '<h3>');
+                        break;
+                    case 'ul':
+                        document.execCommand('insertUnorderedList', false, null);
+                        break;
+                    case 'ol':
+                        document.execCommand('insertOrderedList', false, null);
+                        break;
+                    case 'quote':
+                        document.execCommand('formatBlock', false, '<blockquote>');
+                        break;
+                    case 'image':
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = function(e2) {
+                            const file = e2.target.files[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = function(ev) {
+                                const img = document.createElement('img');
+                                img.src = ev.target.result;
+                                img.style.maxWidth = '100%';
+                                img.style.borderRadius = '4px';
+                                editor.appendChild(img);
+                                editor.focus();
+                            };
+                            reader.readAsDataURL(file);
+                        };
+                        input.click();
+                        break;
+                    case 'link':
+                        const url = prompt('请输入链接地址：', 'https://');
+                        if (url) {
+                            const text = window.getSelection().toString() || url;
+                            document.execCommand('insertHTML', false,
+                                `<a href="${url}" target="_blank">${text}</a>`);
+                        }
+                        break;
+                    case 'undo':
+                        document.execCommand('undo', false, null);
+                        break;
+                    case 'redo':
+                        document.execCommand('redo', false, null);
+                        break;
+                    case 'clear':
+                        document.execCommand('removeFormat', false, null);
+                        break;
+                }
+                editor.focus();
+            });
+        });
+
+        // 编辑器支持粘贴图片
+        editorContent.addEventListener('paste', function(e) {
+            const items = e.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    e.preventDefault();
+                    const file = items[i].getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        const img = document.createElement('img');
+                        img.src = ev.target.result;
+                        img.style.maxWidth = '100%';
+                        img.style.borderRadius = '4px';
+                        editorContent.appendChild(img);
+                        editorContent.focus();
+                    };
+                    reader.readAsDataURL(file);
+                    break;
+                }
+            }
+        });
+
+        // 打开/关闭发布模态框
+        document.getElementById('openPublishBtn').addEventListener('click', function() {
+            publishModal.classList.add('active');
+            document.getElementById('postTitle').focus();
+            editorContent.innerHTML = '';
+        });
+        document.getElementById('closePublishBtn').addEventListener('click', function() {
+            publishModal.classList.remove('active');
+            document.getElementById('publishForm').reset();
+            editorContent.innerHTML = '';
+        });
+        publishModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+                document.getElementById('publishForm').reset();
+                editorContent.innerHTML = '';
+            }
+        });
+
+        // 提交发布
+        document.getElementById('publishForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const title = document.getElementById('postTitle').value.trim();
+            const category = document.getElementById('postCategory').value.trim();
+            const summary = document.getElementById('postSummary').value.trim();
+            const content = editorContent.innerHTML.trim();
+            const colorRadio = document.querySelector('input[name="coverColor"]:checked');
+            const coverColor = colorRadio ? colorRadio.value : 'teal';
+
+            if (!title || !category) { alert('请填写标题和分类'); return; }
+            if (!content) { alert('请填写正文内容'); return; }
+
+            const posts = getPosts();
+            posts.push({
+                id: genId(),
+                title,
+                category,
+                summary: summary || '',
+                coverColor,
+                date: new Date().toISOString().slice(0, 10),
+                comments: 0,
+                views: 0,
+                type: selectedType,
+                content: content
+            });
+            savePosts(posts);
+            if (currentCategory === '全部' || currentCategory === category) {
+                renderAll();
+            } else {
+                renderAll();
+            }
+            publishModal.classList.remove('active');
+            document.getElementById('publishForm').reset();
+            editorContent.innerHTML = '';
+            document.getElementById('post-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        // ============================================================
+        // 4. 相册管理
+        // ============================================================
+        const IMAGE_KEY = 'ZIH_gallery';
+        const defaultImages = [
+            { id: 1, url: 'https://picsum.photos/seed/1/400/300', title: '晨光', desc: '清晨的第一缕光' },
+            { id: 2, url: 'https://picsum.photos/seed/2/400/300', title: '城市', desc: '暮色下的楼群' },
+            { id: 3, url: 'https://picsum.photos/seed/3/400/300', title: '小径', desc: '林间漫步' },
+            { id: 4, url: 'https://picsum.photos/seed/4/400/300', title: '海岸', desc: '浪花与礁石' },
+            { id: 5, url: 'https://picsum.photos/seed/5/400/300', title: '街角', desc: '旧书店的午后' },
+            { id: 6, url: 'https://picsum.photos/seed/6/400/300', title: '星空', desc: '深夜的宁静' },
+            { id: 7, url: 'https://picsum.photos/seed/7/400/300', title: '烟火', desc: '人间至味' },
+            { id: 8, url: 'https://picsum.photos/seed/8/400/300', title: '剪影', desc: '黄昏的轮廓' },
+            { id: 9, url: 'https://picsum.photos/seed/9/400/300', title: '绿意', desc: '自然呼吸' }
+        ];
+
+        function getImages() {
+            const stored = localStorage.getItem(IMAGE_KEY);
+            if (stored) {
+                try { return JSON.parse(stored); } catch (_) {}
+            }
+            localStorage.setItem(IMAGE_KEY, JSON.stringify(defaultImages));
+            return defaultImages;
+        }
+
+        function saveImages(images) { localStorage.setItem(IMAGE_KEY, JSON.stringify(images)); }
+
+        function genImageId() { return Date.now() + Math.floor(Math.random() * 1000); }
+
+        function renderGallery() {
+            const container = document.getElementById('gallery-grid');
+            const images = getImages();
+            if (images.length === 0) {
+                container.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">暂无图片，点击「上传图片」添加你的照片吧！</p>`;
+                return;
+            }
+            let html = '';
+            images.forEach(img => {
+                html += `
+                    <div class="gallery-item">
+                        <img src="${img.url}" alt="${img.title}" loading="lazy" />
+                        <div class="caption">
+                            <strong>${img.title}</strong>
+                            ${img.desc ? img.desc : ''}
+                        </div>
+                        <div class="foot">
+                            <span></span>
+                            <button class="delete-btn" onclick="deleteImage(${img.id})" title="删除图片">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function deleteImage(id) {
+            if (!confirm('确定要删除这张图片吗？')) return;
+            let images = getImages();
+            images = images.filter(img => img.id !== id);
+            saveImages(images);
+            renderGallery();
+        }
+
+        const fileInput = document.getElementById('imageInput');
+        document.getElementById('uploadImageBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            fileInput.click();
+        });
+        fileInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+            const images = getImages();
+            let loaded = 0;
+            const total = files.length;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (!file.type.startsWith('image/')) continue;
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const dataUrl = ev.target.result;
+                    const name = file.name.replace(/\.[^.]+$/, '');
+                    images.push({ id: genImageId(), url: dataUrl, title: name, desc: '' });
+                    loaded++;
+                    if (loaded === total) {
+                        saveImages(images);
+                        renderGallery();
+                        fileInput.value = '';
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+            if (total === 0) fileInput.value = '';
+        });
+
+        // ============================================================
+        // 5. 评论系统
+        // ============================================================
+        const COMMENT_KEY = 'ZIH_comments';
+        const defaultComments = [
+            { id: 1, name: '路人甲', content: '这个博客真不错！加油！', time: '2026-08-31 10:20' },
+            { id: 2, name: '小赵', content: '学习了，文章很有帮助。', time: '2026-08-31 14:35' },
+        ];
+
+        function getComments() {
+            const stored = localStorage.getItem(COMMENT_KEY);
+            if (stored) {
+                try { return JSON.parse(stored); } catch (_) {}
+            }
+            localStorage.setItem(COMMENT_KEY, JSON.stringify(defaultComments));
+            return defaultComments;
+        }
+
+        function saveComments(comments) { localStorage.setItem(COMMENT_KEY, JSON.stringify(comments)); }
+
+        function genCommentId() { return Date.now() + Math.floor(Math.random() * 1000); }
+
+        function renderComments() {
+            const container = document.getElementById('comment-grid');
+            const comments = getComments();
+            if (comments.length === 0) {
+                container.innerHTML =
+                    `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">还没有评论，来说两句吧～</p>`;
+                return;
+            }
+            const sorted = [...comments].sort((a, b) => b.id - a.id);
+            let html = '';
+            sorted.forEach(c => {
+                const initial = c.name.charAt(0).toUpperCase() || '?';
+                html += `
+                    <div class="comment-card">
+                        <div class="body">
+                            <div class="comment-author">
+                                <span class="initial">${initial}</span>
+                                <span class="name">${c.name}</span>
+                                <span class="time">${c.time || '刚刚'}</span>
+                            </div>
+                            <div class="comment-content">${c.content}</div>
+                            <div class="foot">
+                                <span></span>
+                                <button class="delete-btn" onclick="deleteComment(${c.id})" title="删除评论">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function deleteComment(id) {
+            if (!confirm('确定要删除这条评论吗？')) return;
+            let comments = getComments();
+            comments = comments.filter(c => c.id !== id);
+            saveComments(comments);
+            renderComments();
+        }
+
+        document.getElementById('submitCommentBtn').addEventListener('click', function() {
+            const name = document.getElementById('commentName').value.trim();
+            const content = document.getElementById('commentContent').value.trim();
+            if (!name || !content) { alert('请填写昵称和评论内容'); return; }
+            const comments = getComments();
+            comments.push({ id: genCommentId(), name, content, time: new Date().toLocaleString('zh-CN', { hour12: false }) });
+            saveComments(comments);
+            renderComments();
+            document.getElementById('commentName').value = '';
+            document.getElementById('commentContent').value = '';
+            const firstCard = document.querySelector('#comment-grid .comment-card');
+            if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+
+        // ============================================================
+        // 6. 联系方式管理
+        // ============================================================
+        const CONTACT_KEY = 'ZIH_contacts';
+        const defaultContacts = [
+            { id: 1, label: '微信', iconType: 'wechat', imageUrl: '' },
+            { id: 2, label: '抖音', iconType: 'douyin', imageUrl: '' }
+        ];
+
+        function getContacts() {
+            const stored = localStorage.getItem(CONTACT_KEY);
+            if (stored) {
+                try { return JSON.parse(stored); } catch (_) {}
+            }
+            localStorage.setItem(CONTACT_KEY, JSON.stringify(defaultContacts));
+            return defaultContacts;
+        }
+
+        function saveContacts(contacts) { localStorage.setItem(CONTACT_KEY, JSON.stringify(contacts)); }
+
+        function genContactId() { return Date.now() + Math.floor(Math.random() * 1000); }
+
+        function renderContacts() {
+            const container = document.getElementById('contact-grid');
+            const contacts = getContacts();
+            if (contacts.length === 0) {
+                container.innerHTML =
+                    `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">暂无联系方式，点击「添加联系方式」创建吧。</p>`;
+                return;
+            }
+            let html = '';
+            contacts.forEach(c => {
+                const iconSvg = c.iconType === 'wechat' ?
+                    `<svg viewBox="0 0 24 24" fill="currentColor" style="width:36px;height:36px;color:#07c160;"><path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.802 0 1.452.65 1.452 1.452s-.65 1.452-1.452 1.452-1.452-.65-1.452-1.452.65-1.452 1.452-1.452zm5.812 0c.802 0 1.452.65 1.452 1.452s-.65 1.452-1.452 1.452-1.452-.65-1.452-1.452.65-1.452 1.452-1.452zm9.682 4.9c-2.894 0-5.24 2.038-5.24 4.552 0 2.514 2.346 4.552 5.24 4.552.84 0 1.64-.174 2.366-.488a.71.71 0 0 1 .586.08l1.5.878a.264.264 0 0 0 .136.044.234.234 0 0 0 .234-.234c0-.059-.024-.117-.039-.175l-.31-1.163a.484.484 0 0 1 .176-.547c1.506-1.116 2.45-2.688 2.45-4.497 0-2.514-2.346-4.552-5.24-4.552zm-2.212 3.553c.654 0 1.186.532 1.186 1.186s-.532 1.186-1.186 1.186-1.186-.532-1.186-1.186.532-1.186 1.186-1.186zm4.424 0c.654 0 1.186.532 1.186 1.186s-.532 1.186-1.186 1.186-1.186-.532-1.186-1.186.532-1.186 1.186-1.186z"/></svg>` :
+                    `<svg viewBox="0 0 24 24" fill="currentColor" style="width:36px;height:36px;color:#000;"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>`;
+                const imageHtml = c.imageUrl ?
+                    `<img src="${c.imageUrl}" alt="${c.label}" />` :
+                    `<span class="placeholder">点击上传图片</span>`;
+                html += `
+                    <div class="contact-card">
+                        <div class="icon">${iconSvg}</div>
+                        <div class="label" contenteditable="true" data-id="${c.id}">${c.label}</div>
+                        <div class="image-area" data-id="${c.id}">
+                            ${imageHtml}
+                            <div class="upload-hint">点击上传 / 更换</div>
+                        </div>
+                        <div class="image-actions">
+                            <button class="upload-btn" data-id="${c.id}">📤 上传</button>
+                            ${c.imageUrl ? `<button class="delete-img-btn danger" data-id="${c.id}">🗑️ 删除照片</button>` : ''}
+                        </div>
+                        <div class="foot">
+                            <span></span>
+                            <button class="delete-btn" onclick="deleteContact(${c.id})" title="删除卡片">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+
+            document.querySelectorAll('.contact-card .label').forEach(el => {
+                el.addEventListener('blur', function() {
+                    const id = parseInt(this.dataset.id);
+                    const newLabel = this.textContent.trim();
+                    if (newLabel) {
+                        let contacts = getContacts();
+                        const item = contacts.find(c => c.id === id);
+                        if (item) { item.label = newLabel;
+                            saveContacts(contacts); }
+                    } else {
+                        const contacts = getContacts();
+                        const item = contacts.find(c => c.id === id);
+                        if (item) this.textContent = item.label;
+                    }
+                });
+                el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault();
+                        this.blur(); } });
+            });
+
+            document.querySelectorAll('.contact-card .image-area, .contact-card .upload-btn').forEach(el => {
+                el.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const card = this.closest('.contact-card');
+                    const id = parseInt(card.querySelector('.label').dataset.id);
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.onchange = function(e2) {
+                        const file = e2.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = function(ev) {
+                            const dataUrl = ev.target.result;
+                            let contacts = getContacts();
+                            const item = contacts.find(c => c.id === id);
+                            if (item) {
+                                item.imageUrl = dataUrl;
+                                saveContacts(contacts);
+                                renderContacts();
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    };
+                    input.click();
+                });
+            });
+
+            document.querySelectorAll('.delete-img-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const id = parseInt(this.dataset.id);
+                    if (!confirm('确定要删除这张照片吗？')) return;
+                    let contacts = getContacts();
+                    const item = contacts.find(c => c.id === id);
+                    if (item) {
+                        item.imageUrl = '';
+                        saveContacts(contacts);
+                        renderContacts();
+                    }
+                });
+            });
+        }
+
+        function deleteContact(id) {
+            if (!confirm('确定要删除这个联系方式卡片吗？')) return;
+            let contacts = getContacts();
+            contacts = contacts.filter(c => c.id !== id);
+            saveContacts(contacts);
+            renderContacts();
+        }
+
+        const addContactModal = document.getElementById('addContactModal');
+        document.getElementById('addContactBtn').addEventListener('click', () => {
+            addContactModal.classList.add('active');
+            document.getElementById('contactLabel').focus();
+        });
+        document.getElementById('closeAddContactBtn').addEventListener('click', () => {
+            addContactModal.classList.remove('active');
+            document.getElementById('addContactForm').reset();
+        });
+        addContactModal.addEventListener('click', e => {
+            if (e.target === addContactModal) {
+                addContactModal.classList.remove('active');
+                document.getElementById('addContactForm').reset();
+            }
+        });
+        document.getElementById('addContactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const type = document.getElementById('contactType').value;
+            const label = document.getElementById('contactLabel').value.trim();
+            if (!label) { alert('请填写标签'); return; }
+            const contacts = getContacts();
+            contacts.push({ id: genContactId(), label, iconType: type, imageUrl: '' });
+            saveContacts(contacts);
+            renderContacts();
+            addContactModal.classList.remove('active');
+            this.reset();
+            const firstCard = document.querySelector('#contact-grid .contact-card');
+            if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+
+        // ============================================================
+        // 7. 音乐播放器
+        // ============================================================
+        const MUSIC_KEY = 'ZIH_music';
+
+        function getMusicData() {
+            const stored = localStorage.getItem(MUSIC_KEY);
+            if (stored) {
+                try { return JSON.parse(stored); } catch (_) {}
+            }
+            return null;
+        }
+
+        function saveMusicData(data) { localStorage.setItem(MUSIC_KEY, JSON.stringify(data)); }
+
+        const audioPlayer = document.getElementById('audioPlayer');
+        const playBtn = document.getElementById('playBtn');
+        const musicStatus = document.getElementById('musicStatus');
+        const musicTime = document.getElementById('musicTime');
+        const progressFill = document.getElementById('progressFill');
+        const progressBar = document.getElementById('progressBar');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const musicControls = document.getElementById('musicControls');
+        const musicUploadArea = document.getElementById('musicUploadArea');
+        const musicInput = document.getElementById('musicInput');
+        const deleteMusicBtn = document.getElementById('deleteMusicBtn');
+
+        let isPlaying = false,
+            isLoaded = false;
+
+        function loadMusic() {
+            const data = getMusicData();
+            if (data && data.src) {
+                audioPlayer.src = data.src;
+                audioPlayer.load();
+                isLoaded = true;
+                musicControls.classList.add('show');
+                musicUploadArea.style.display = 'none';
+                musicStatus.textContent = data.name || '已加载';
+                if (data.volume !== undefined) { audioPlayer.volume = data.volume;
+                    volumeSlider.value = data.volume; }
+                if (data.playing) { playBtn.textContent = '▶ 播放';
+                    playBtn.classList.remove('paused');
+                    musicStatus.textContent = data.name || '已暂停'; }
+                updateTimeDisplay();
+            } else {
+                musicControls.classList.remove('show');
+                musicUploadArea.style.display = 'block';
+                musicStatus.textContent = '未加载';
+                playBtn.textContent = '▶ 播放';
+                playBtn.classList.remove('paused');
+            }
+        }
+
+        function updateTimeDisplay() {
+            if (audioPlayer.duration) {
+                const current = formatTime(audioPlayer.currentTime);
+                const total = formatTime(audioPlayer.duration);
+                musicTime.textContent = `${current} / ${total}`;
+                const percent = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+                progressFill.style.width = percent + '%';
+            } else { musicTime.textContent = '00:00 / 00:00';
+                progressFill.style.width = '0%'; }
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+        }
+
+        function togglePlay() {
+            if (!isLoaded) { alert('请先上传音乐文件'); return; }
+            if (audioPlayer.paused) {
+                audioPlayer.play().then(() => {
+                    isPlaying = true;
+                    playBtn.textContent = '⏸ 暂停';
+                    playBtn.classList.add('paused');
+                    musicStatus.textContent = '播放中';
+                    const data = getMusicData();
+                    if (data) { data.playing = true;
+                        saveMusicData(data); }
+                }).catch(err => { alert('请手动点击页面后再次尝试播放'); });
+            } else {
+                audioPlayer.pause();
+                isPlaying = false;
+                playBtn.textContent = '▶ 播放';
+                playBtn.classList.remove('paused');
+                musicStatus.textContent = '已暂停';
+                const data = getMusicData();
+                if (data) { data.playing = false;
+                    saveMusicData(data); }
+            }
+        }
+
+        progressBar.addEventListener('click', function(e) {
+            if (!isLoaded) return;
+            const rect = this.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const percent = x / rect.width;
+            if (audioPlayer.duration) { audioPlayer.currentTime = percent * audioPlayer.duration; }
+        });
+
+        volumeSlider.addEventListener('input', function() {
+            audioPlayer.volume = parseFloat(this.value);
+            const data = getMusicData();
+            if (data) { data.volume = parseFloat(this.value);
+                saveMusicData(data); }
+        });
+
+        audioPlayer.addEventListener('timeupdate', updateTimeDisplay);
+        audioPlayer.addEventListener('loadedmetadata', function() {
+            isLoaded = true;
+            updateTimeDisplay();
+            musicControls.classList.add('show');
+            musicUploadArea.style.display = 'none';
+        });
+        audioPlayer.addEventListener('ended', function() {
+            isPlaying = false;
+            playBtn.textContent = '▶ 播放';
+            playBtn.classList.remove('paused');
+            musicStatus.textContent = '已结束';
+            const data = getMusicData();
+            if (data) { data.playing = false;
+                saveMusicData(data); }
+            updateTimeDisplay();
+        });
+
+        musicUploadArea.addEventListener('click', function(e) { e.stopPropagation();
+            musicInput.click(); });
+        musicInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('audio/')) { alert('请选择音频文件');
+                musicInput.value = ''; return; }
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const dataUrl = ev.target.result;
+                const musicData = { src: dataUrl, name: file.name, volume: parseFloat(volumeSlider.value) || 0.8,
+                    playing: false };
+                saveMusicData(musicData);
+                loadMusic();
+                isLoaded = true;
+                musicControls.classList.add('show');
+                musicUploadArea.style.display = 'none';
+                musicStatus.textContent = file.name;
+                playBtn.textContent = '▶ 播放';
+                playBtn.classList.remove('paused');
+                audioPlayer.src = dataUrl;
+                audioPlayer.load();
+                musicInput.value = '';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        deleteMusicBtn.addEventListener('click', function() {
+            if (!confirm('确定要删除已上传的音乐吗？')) return;
+            localStorage.removeItem(MUSIC_KEY);
+            audioPlayer.src = '';
+            audioPlayer.load();
+            isLoaded = false;
+            isPlaying = false;
+            musicControls.classList.remove('show');
+            musicUploadArea.style.display = 'block';
+            musicStatus.textContent = '未加载';
+            playBtn.textContent = '▶ 播放';
+            playBtn.classList.remove('paused');
+            musicTime.textContent = '00:00 / 00:00';
+            progressFill.style.width = '0%';
+        });
+
+        playBtn.addEventListener('click', togglePlay);
+
+        // ============================================================
+        // 8. AI 在线客服
+        // ============================================================
+        let currentMode = 'ai';
+        const chatBox = document.getElementById('aiChatBox');
+        const aiInput = document.getElementById('aiInput');
+        const aiSendBtn = document.getElementById('aiSendBtn');
+        const aiStatus = document.getElementById('aiStatus');
+        const modeBtns = document.querySelectorAll('.mode-btn');
+
+        function addMessage(text, type) {
+            const msg = document.createElement('div');
+            msg.className = `msg ${type}`;
+            msg.textContent = text;
+            chatBox.appendChild(msg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function switchMode(mode) {
+            currentMode = mode;
+            modeBtns.forEach(btn => { btn.classList.toggle('active', btn.dataset.mode === mode); });
+            aiStatus.textContent = `当前模式：${mode === 'ai' ? 'AI 自动回复' : '人工客服'}`;
+            chatBox.innerHTML = '';
+            if (mode === 'ai') {
+                addMessage('你好！我是 AI 助手，有什么可以帮助你的？', 'bot');
+            } else {
+                addMessage('👤 人工客服已接入，请稍候...', 'system');
+                setTimeout(() => { addMessage('您好，我是人工客服，请问有什么可以帮您？', 'bot'); }, 600);
+            }
+        }
+
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const mode = this.dataset.mode;
+                if (mode !== currentMode) { switchMode(mode); }
+            });
+        });
+
+        function handleSend() {
+            const text = aiInput.value.trim();
+            if (!text) return;
+            addMessage(text, 'user');
+            aiInput.value = '';
+            if (currentMode === 'ai') {
+                setTimeout(() => {
+                    const responses = ['好的，我明白了。', '谢谢您的反馈，我会为您处理。', '这是一个很好的问题，让我想想...',
+                        '您可以尝试查看我们的帮助文档。', '请稍等，正在为您查询...', '收到，已记录您的需求。', '很高兴为您服务！'
+                    ];
+                    const reply = responses[Math.floor(Math.random() * responses.length)];
+                    addMessage(reply, 'bot');
+                }, 500 + Math.random() * 600);
+            } else {
+                setTimeout(() => { addMessage('📩 已收到您的消息，人工客服将尽快回复您。', 'system'); }, 300);
+            }
+        }
+
+        aiSendBtn.addEventListener('click', handleSend);
+        aiInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault();
+                handleSend(); } });
+
+        // ============================================================
+        // 9. 数据导出 / 导入
+        // ============================================================
+        const exportBtn = document.getElementById('exportDataBtn');
+        const importBtn = document.getElementById('importDataBtn');
+        const importFileInput = document.getElementById('importFileInput');
+
+        exportBtn.addEventListener('click', function() {
+            const data = {
+                version: '1.0',
+                exportedAt: new Date().toISOString(),
+                posts: getPosts(),
+                comments: getComments(),
+                images: getImages(),
+                contacts: getContacts(),
+                profile: getProfile(),
+                music: getMusicData()
+            };
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const date = new Date().toISOString().slice(0, 10);
+            a.download = `ZIH-backup-${date}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            const count = data.posts.length + data.comments.length + data.images.length + data.contacts.length;
+            alert(
+                `✅ 数据已导出！\n共导出 ${count} 条数据（文章 ${data.posts.length}，评论 ${data.comments.length}，图片 ${data.images.length}，联系方式 ${data.contacts.length}）`
+                );
+        });
+
+        importBtn.addEventListener('click', function() { importFileInput.click(); });
+        importFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.name.endsWith('.json')) { alert('请选择 JSON 文件');
+                importFileInput.value = ''; return; }
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const data = JSON.parse(ev.target.result);
+                    if (!data.version || !data.posts) { throw new Error('无效的备份文件格式'); }
+                    const confirmMsg =
+                        `即将导入数据，将覆盖当前所有内容！\n\n` +
+                        `📄 文章: ${data.posts ? data.posts.length : 0} 篇\n` +
+                        `💬 评论: ${data.comments ? data.comments.length : 0} 条\n` +
+                        `🖼️ 图片: ${data.images ? data.images.length : 0} 张\n` +
+                        `📇 联系方式: ${data.contacts ? data.contacts.length : 0} 个\n` +
+                        `👤 个人资料: ${data.profile ? '已包含' : '无'}\n` +
+                        `🎵 音乐: ${data.music ? '已包含' : '无'}\n\n` +
+                        `确定要继续吗？`;
+                    if (!confirm(confirmMsg)) { importFileInput.value = ''; return; }
+                    if (data.posts) savePosts(data.posts);
+                    if (data.comments) saveComments(data.comments);
+                    if (data.images) saveImages(data.images);
+                    if (data.contacts) saveContacts(data.contacts);
+                    if (data.profile) saveProfile(data.profile);
+                    if (data.music) saveMusicData(data.music);
+                    renderProfile();
+                    renderAll();
+                    renderGallery();
+                    renderComments();
+                    renderContacts();
+                    loadMusic();
+                    alert('✅ 数据导入成功！所有内容已恢复。');
+                    importFileInput.value = '';
+                } catch (err) { alert('❌ 导入失败：' + err.message);
+                    importFileInput.value = ''; }
+            };
+            reader.readAsText(file);
+        });
+
+        // ============================================================
+        // 10. 菜单控制
+        // ============================================================
+        const menuToggle = document.getElementById('menuToggle');
+        const menuPanel = document.getElementById('menuPanel');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const menuCloseBtn = document.getElementById('menuCloseBtn');
+
+        function openMenu() { menuPanel.classList.add('open');
+            menuOverlay.classList.add('open');
+            menuToggle.classList.add('open');
+            document.body.style.overflow = 'hidden'; }
+
+        function closeMenu() { menuPanel.classList.remove('open');
+            menuOverlay.classList.remove('open');
+            menuToggle.classList.remove('open');
+            document.body.style.overflow = ''; }
+
+        function toggleMenu() { if (menuPanel.classList.contains('open')) closeMenu();
+            else openMenu(); }
+
+        menuToggle.addEventListener('click', toggleMenu);
+        menuOverlay.addEventListener('click', closeMenu);
+        menuCloseBtn.addEventListener('click', closeMenu);
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeMenu();
+                closeSidebar(); } });
+
+        // ============================================================
+        // 11. 移动端侧边栏
+        // ============================================================
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarWrapper = document.getElementById('sidebarWrapper');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        let isSidebarOpen = false;
+
+        function openSidebar() { sidebarWrapper.classList.add('open');
+            sidebarOverlay.classList.add('open');
+            isSidebarOpen = true;
+            document.body.style.overflow = 'hidden'; }
+
+        function closeSidebar() { sidebarWrapper.classList.remove('open');
+            sidebarOverlay.classList.remove('open');
+            isSidebarOpen = false;
+            document.body.style.overflow = ''; }
+
+        function toggleSidebar() { if (isSidebarOpen) { closeSidebar(); } else { openSidebar(); } }
+
+        sidebarToggle.addEventListener('click', function(e) { e.stopPropagation();
+            toggleSidebar(); });
+        sidebarOverlay.addEventListener('click', closeSidebar);
+        sidebarWrapper.addEventListener('click', function(e) { e.stopPropagation(); });
+        window.addEventListener('resize', function() { if (window.innerWidth > 860 && isSidebarOpen) { closeSidebar(); } });
+
+        // ============================================================
+        // 12. 顶部导航切换
+        // ============================================================
+        const blogContent = document.getElementById('blog-content');
+        const gallery = document.getElementById('gallery');
+        const personal = document.getElementById('personal');
+        const about = document.getElementById('about');
+        const navLinks = document.querySelectorAll('.toplinks a');
+        const iconSearch = document.getElementById('icon-search');
+        const iconGrid = document.getElementById('icon-grid');
+
+        function showTab(tabId, fromIcon = false) {
+            blogContent.classList.remove('active');
+            gallery.classList.remove('active');
+            personal.classList.remove('active');
+            about.classList.remove('active');
+            if (tabId === 'blog') blogContent.classList.add('active');
+            else if (tabId === 'gallery') gallery.classList.add('active');
+            else if (tabId === 'personal') personal.classList.add('active');
+            else if (tabId === 'about') about.classList.add('active');
+            navLinks.forEach(link => { link.classList.toggle('active', link.dataset.tab === tabId); });
+            iconSearch.classList.toggle('active-icon', tabId === 'blog');
+            iconGrid.classList.toggle('active-icon', tabId === 'gallery');
+            if (tabId === 'gallery') renderGallery();
+            if (tabId === 'personal') renderComments();
+            if (tabId === 'about') renderContacts();
+            if (fromIcon) {
+                if (tabId === 'blog') { iconSearch.classList.remove('pulse');
+                    void iconSearch.offsetWidth;
+                    iconSearch.classList.add('pulse');
+                    setTimeout(() => iconSearch.classList.remove('pulse'), 700); } else if (tabId === 'gallery') {
+                    iconGrid.classList.remove('spin');
+                    void iconGrid.offsetWidth;
+                    iconGrid.classList.add('spin');
+                    setTimeout(() => iconGrid.classList.remove('spin'), 700); }
+            }
+            if (window.innerWidth <= 860 && isSidebarOpen) { closeSidebar(); }
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', function(e) { e.preventDefault();
+                const tab = this.dataset.tab; if (tab) showTab(tab, false); });
+        });
+        iconSearch.addEventListener('click', function(e) { e.stopPropagation();
+            showTab('blog', true); });
+        iconGrid.addEventListener('click', function(e) { e.stopPropagation();
+            showTab('gallery', true); });
+
+        // ============================================================
+        // 13. 主题切换
+        // ============================================================
+        const THEMES = {
+            light: { name: '☀️ 白天' },
+            dark: { name: '🌙 黑夜' },
+            warm: { name: '🌅 暖阳' },
+            forest: { name: '🌲 森林' },
+            ocean: { name: '🌊 海洋' },
+            sakura: { name: '🌸 樱花' },
+            violet: { name: '💜 紫罗兰' }
+        };
+
+        function applyTheme(themeKey) {
+            const root = document.documentElement;
+            // 简化版主题应用 —— 使用 CSS 变量覆盖
+            const themes = {
+                light: { '--bg': '#f4f5f7', '--panel': '#ffffff', '--ink': '#17181c', '--ink-soft': '#5c5f68',
+                    '--ink-faint': '#9a9da5', '--line': '#eaebee', '--teal': '#17b6a6', '--teal-hover': '#0f9e8f',
+                    '--topbar-bg': 'rgba(244,245,247,0.86)', '--modal-overlay': 'rgba(0,0,0,0.4)',
+                    '--pill-active': '#131316', '--pill-hover': '#e8e8ea', '--input-bg': '#f4f5f7',
+                    '--input-focus': '#ffffff', '--btn-cancel-bg': '#f4f5f7', '--btn-cancel-hover': '#eaebee',
+                    '--rail-bg': '#ffffff', '--rail-border': '#eaebee', '--rail-hover-bg': '#131316',
+                    '--footer-border': '#eaebee', '--menu-item-hover': '#f4f5f7',
+                    '--menu-item-active-bg': 'rgba(23,182,166,0.1)', '--menu-item-count-bg': '#f4f5f7',
+                    '--menu-item-count-active': 'rgba(23,182,166,0.15)', '--sidebar-overlay': 'rgba(0,0,0,0.4)',
+                    '--music-upload-border': '#eaebee', '--music-upload-hover-bg': 'rgba(23,182,166,0.04)',
+                    '--mode-btn-bg': '#f4f5f7', '--mode-btn-border': '#eaebee', '--mode-btn-active-bg': '#17b6a6',
+                    '--mode-btn-active-color': '#ffffff', '--mode-btn-hover-border': '#17b6a6',
+                    '--data-btn-bg': '#f4f5f7', '--data-btn-border': '#eaebee',
+                    '--data-btn-hover-border': '#17b6a6', '--data-btn-hover-color': '#17b6a6',
+                    '--data-btn-export-bg': '#17b6a6', '--data-btn-export-hover': '#0f9e8f',
+                    '--data-btn-import-bg': '#e8863a', '--data-btn-import-hover': '#d4782e',
+                    '--data-hint-color': '#9a9da5', '--data-hint-strong': '#5c5f68',
+                    '--theme-btn-border': '#eaebee', '--theme-btn-active-border': '#17b6a6',
+                    '--theme-name-color': '#5c5f68', '--theme-name-active': '#17181c',
+                    '--post-hover-shadow': 'rgba(0,0,0,0.06)', '--modal-shadow': 'rgba(0,0,0,0.2)',
+                    '--modal-bg': '#ffffff', '--scrollbar-thumb': '#eaebee', '--avatar-bg': 'linear-gradient(145deg, #2a2b31, #0d0d10)',
+                    '--profile-gradient': 'linear-gradient(160deg, #131316, #0a0a0c 85%)',
+                    '--profile-accent': 'rgba(23,182,166,0.35)', '--greet-bg': 'rgba(255,255,255,0.08)',
+                    '--greet-color': '#c9cbd3', '--social-bg': 'rgba(255,255,255,0.08)',
+                    '--social-hover': 'rgba(255,255,255,0.18)', '--social-icon-color': '#c9cbd3',
+                    '--avatar-border-color': 'rgba(255,255,255,0.15)', '--avatar-hint-bg': 'rgba(0,0,0,0.6)',
+                    '--avatar-badge-bg': '#17b6a6', '--avatar-badge-border': '#131316',
+                    '--avatar-default': '#9a9da5', '--pname-focus-shadow': '#17b6a6',
+                    '--pname-hover-bg': 'rgba(255,255,255,0.06)', '--pname-focus-bg': 'rgba(255,255,255,0.1)',
+                    '--pname-placeholder': '#8b8e97', '--pbio-color': '#9a9da5', '--pstats-color': '#8b8e97',
+                    '--postmini-border': '#eaebee', '--postmini-thumb-bg': 'linear-gradient(150deg, #17b6a6, #0d8a7f)',
+                    '--postmini-thumb-b': 'linear-gradient(150deg, #2d2e33, #131316)',
+                    '--postmini-text': '#17181c', '--music-status-color': '#9a9da5',
+                    '--music-time-color': '#9a9da5', '--music-progress-bg': '#f4f5f7',
+                    '--music-progress-fill': '#17b6a6', '--music-volume-track': '#e0e0e0',
+                    '--music-volume-thumb': '#17b6a6', '--ai-status-color': '#9a9da5', '--ai-chat-bg': '#f0f0f2',
+                    '--ai-msg-bot': '#ffffff', '--ai-msg-user': '#17b6a6', '--ai-msg-system': '#e8863a',
+                    '--ai-input-bg': '#ffffff', '--ai-input-border': '#eaebee',
+                    '--ai-input-focus-border': '#17b6a6', '--ai-send-btn-bg': '#17b6a6',
+                    '--ai-send-btn-hover': '#0f9e8f', '--theme-current-color': '#5c5f68',
+                    '--theme-current-bg': '#f4f5f7', '--theme-btn-bg': '#f4f5f7', '--theme-btn-hover': '#e8e8ea',
+                    '--theme-btn-active-shadow': '0 0 0 2px #17b6a6', '--theme-btn-text': '#5c5f68',
+                    '--theme-btn-active-text': '#17181c', '--pill-active-text': '#ffffff',
+                    '--rail-hover-color': '#ffffff', '--delete-hover-bg': '#fee2e2',
+                    '--delete-hover-color': '#dc2626', '--fcard-dark1': 'radial-gradient(circle at 80% 0%, #2b2b30, #131316 60%)',
+                    '--fcard-dark2': 'linear-gradient(155deg, #232326, #0f0f11)', '--fcard-tag': 'rgba(255,255,255,0.1)',
+                    '--theme-btn-active-bg': 'rgba(23,182,166,0.08)', '--input-border': '#eaebee',
+                    '--input-focus-border': '#17b6a6', '--menu-item-active-color': '#17b6a6',
+                    '--avatar-badge-color': '#ffffff', '--scrollbar-track': 'transparent',
+                    '--editor-toolbar-bg': '#f4f5f7', '--editor-toolbar-border': '#eaebee',
+                    '--editor-toolbar-btn-hover': '#e8e8ea', '--editor-content-bg': '#ffffff',
+                    '--editor-content-border': '#eaebee', '--type-btn-active-bg': '#17b6a6',
+                    '--type-btn-active-color': '#ffffff', '--type-btn-border': '#eaebee',
+                    '--type-btn-bg': '#f4f5f7', '--type-btn-hover-border': '#17b6a6' }
+            };
+            const darkTheme = {
+                '--bg': '#1a1a1e',
+                '--panel': '#2a2a30',
+                '--ink': '#ececf0',
+                '--ink-soft': '#a8abb2',
+                '--ink-faint': '#6a6d75',
+                '--line': '#3a3a40',
+                '--teal': '#2bc0b0',
+                '--teal-hover': '#1fa89a',
+                '--topbar-bg': 'rgba(26,26,30,0.86)',
+                '--modal-overlay': 'rgba(0,0,0,0.7)',
+                '--pill-active': '#3a3a40',
+                '--pill-hover': '#3a3a40',
+                '--input-bg': '#1a1a1e',
+                '--input-focus': '#2a2a30',
+                '--btn-cancel-bg': '#3a3a40',
+                '--btn-cancel-hover': '#4a4a50',
+                '--rail-bg': '#2a2a30',
+                '--rail-border': '#3a3a40',
+                '--rail-hover-bg': '#4a4a50',
+                '--footer-border': '#3a3a40',
+                '--menu-item-hover': '#3a3a40',
+                '--menu-item-active-bg': 'rgba(43,192,176,0.15)',
+                '--menu-item-count-bg': '#3a3a40',
+                '--menu-item-count-active': 'rgba(43,192,176,0.2)',
+                '--sidebar-overlay': 'rgba(0,0,0,0.7)',
+                '--music-upload-border': '#3a3a40',
+                '--music-upload-hover-bg': 'rgba(43,192,176,0.08)',
+                '--mode-btn-bg': '#3a3a40',
+                '--mode-btn-border': '#4a4a50',
+                '--data-btn-bg': '#3a3a40',
+                '--data-btn-border': '#4a4a50',
+                '--data-btn-hover-border': '#2bc0b0',
+                '--data-btn-hover-color': '#2bc0b0',
+                '--theme-btn-border': '#3a3a40',
+                '--theme-btn-active-border': '#2bc0b0',
+                '--theme-name-color': '#a8abb2',
+                '--theme-name-active': '#ececf0',
+                '--post-hover-shadow': 'rgba(0,0,0,0.3)',
+                '--modal-shadow': 'rgba(0,0,0,0.5)',
+                '--modal-bg': '#2a2a30',
+                '--scrollbar-thumb': '#3a3a40',
+                '--avatar-bg': 'linear-gradient(145deg, #3a3a40, #1a1a1e)',
+                '--profile-gradient': 'linear-gradient(160deg, #0a0a0c, #000000 85%)',
+                '--profile-accent': 'rgba(43,192,176,0.3)',
+                '--greet-bg': 'rgba(255,255,255,0.06)',
+                '--greet-color': '#8a8d95',
+                '--social-bg': 'rgba(255,255,255,0.06)',
+                '--social-hover': 'rgba(255,255,255,0.12)',
+                '--social-icon-color': '#8a8d95',
+                '--avatar-border-color': 'rgba(255,255,255,0.08)',
+                '--avatar-hint-bg': 'rgba(0,0,0,0.7)',
+                '--avatar-badge-bg': '#2bc0b0',
+                '--avatar-badge-border': '#1a1a1e',
+                '--avatar-default': '#6a6d75',
+                '--pname-focus-shadow': '#2bc0b0',
+                '--pname-hover-bg': 'rgba(255,255,255,0.04)',
+                '--pname-focus-bg': 'rgba(255,255,255,0.06)',
+                '--pname-placeholder': '#6a6d75',
+                '--pbio-color': '#6a6d75',
+                '--pstats-color': '#6a6d75',
+                '--postmini-border': '#3a3a40',
+                '--postmini-thumb-bg': 'linear-gradient(150deg, #2bc0b0, #1a8a7a)',
+                '--postmini-thumb-b': 'linear-gradient(150deg, #4a4a50, #2a2a30)',
+                '--postmini-text': '#ececf0',
+                '--music-status-color': '#6a6d75',
+                '--music-time-color': '#6a6d75',
+                '--music-progress-bg': '#3a3a40',
+                '--music-progress-fill': '#2bc0b0',
+                '--music-volume-track': '#3a3a40',
+                '--music-volume-thumb': '#2bc0b0',
+                '--ai-status-color': '#6a6d75',
+                '--ai-chat-bg': '#1a1a1e',
+                '--ai-msg-bot': '#2a2a30',
+                '--ai-msg-user': '#2bc0b0',
+                '--ai-msg-system': '#c07a3a',
+                '--ai-input-bg': '#2a2a30',
+                '--ai-input-border': '#3a3a40',
+                '--ai-input-focus-border': '#2bc0b0',
+                '--ai-send-btn-bg': '#2bc0b0',
+                '--ai-send-btn-hover': '#1fa89a',
+                '--theme-current-color': '#a8abb2',
+                '--theme-current-bg': '#3a3a40',
+                '--theme-btn-bg': '#3a3a40',
+                '--theme-btn-hover': '#4a4a50',
+                '--theme-btn-active-shadow': '0 0 0 2px #2bc0b0',
+                '--theme-btn-text': '#a8abb2',
+                '--theme-btn-active-text': '#ececf0',
+                '--pill-active-text': '#ececf0',
+                '--rail-hover-color': '#ececf0',
+                '--data-btn-export-bg': '#2bc0b0',
+                '--data-btn-export-hover': '#1fa89a',
+                '--data-btn-import-bg': '#c07a3a',
+                '--data-btn-import-hover': '#a86a2a',
+                '--mode-btn-active-bg': '#2bc0b0',
+                '--mode-btn-active-color': '#ececf0',
+                '--mode-btn-hover-border': '#2bc0b0',
+                '--delete-hover-bg': 'rgba(220,38,38,0.2)',
+                '--delete-hover-color': '#ef4444',
+                '--fcard-dark1': 'radial-gradient(circle at 80% 0%, #3a3a40, #1a1a1e 60%)',
+                '--fcard-dark2': 'linear-gradient(155deg, #3a3a40, #1a1a1e)',
+                '--fcard-tag': 'rgba(255,255,255,0.06)',
+                '--theme-btn-active-bg': 'rgba(43,192,176,0.12)',
+                '--input-border': '#3a3a40',
+                '--input-focus-border': '#2bc0b0',
+                '--menu-item-active-color': '#2bc0b0',
+                '--avatar-badge-color': '#ececf0',
+                '--scrollbar-track': 'transparent',
+                '--editor-toolbar-bg': '#2a2a30',
+                '--editor-toolbar-border': '#3a3a40',
+                '--editor-toolbar-btn-hover': '#3a3a40',
+                '--editor-content-bg': '#2a2a30',
+                '--editor-content-border': '#3a3a40',
+                '--type-btn-active-bg': '#2bc0b0',
+                '--type-btn-active-color': '#ececf0',
+                '--type-btn-border': '#3a3a40',
+                '--type-btn-bg': '#1a1a1e',
+                '--type-btn-hover-border': '#2bc0b0'
+            };
+            // 其他主题复用 dark 的部分结构，主要调整背景色系
+            const warmTheme = { ...darkTheme,
+                '--bg': '#fdf6ee',
+                '--panel': '#ffffff',
+                '--ink': '#3d2c1a',
+                '--ink-soft': '#8a7a6a',
+                '--ink-faint': '#b8a898',
+                '--line': '#f0e6d8',
+                '--teal': '#d4893a',
+                '--teal-hover': '#b8702a',
+                '--topbar-bg': 'rgba(253,246,238,0.86)',
+                '--modal-overlay': 'rgba(60,40,20,0.4)',
+                '--pill-active': '#3d2c1a',
+                '--pill-hover': '#f0e6d8',
+                '--input-bg': '#fdf6ee',
+                '--input-focus': '#ffffff',
+                '--btn-cancel-bg': '#f0e6d8',
+                '--btn-cancel-hover': '#e8dcc8',
+                '--rail-bg': '#ffffff',
+                '--rail-border': '#f0e6d8',
+                '--rail-hover-bg': '#3d2c1a',
+                '--footer-border': '#f0e6d8',
+                '--menu-item-hover': '#fdf6ee',
+                '--menu-item-active-bg': 'rgba(212,137,58,0.12)',
+                '--menu-item-count-bg': '#f0e6d8',
+                '--menu-item-count-active': 'rgba(212,137,58,0.2)',
+                '--sidebar-overlay': 'rgba(60,40,20,0.4)',
+                '--music-upload-border': '#f0e6d8',
+                '--music-upload-hover-bg': 'rgba(212,137,58,0.06)',
+                '--mode-btn-bg': '#f0e6d8',
+                '--mode-btn-border': '#f0e6d8',
+                '--data-btn-bg': '#f0e6d8',
+                '--data-btn-border': '#f0e6d8',
+                '--data-btn-hover-border': '#d4893a',
+                '--data-btn-hover-color': '#d4893a',
+                '--theme-btn-border': '#f0e6d8',
+                '--theme-btn-active-border': '#d4893a',
+                '--theme-name-color': '#8a7a6a',
+                '--theme-name-active': '#3d2c1a',
+                '--post-hover-shadow': 'rgba(180,140,100,0.08)',
+                '--modal-shadow': 'rgba(60,40,20,0.2)',
+                '--modal-bg': '#ffffff',
+                '--scrollbar-thumb': '#f0e6d8',
+                '--avatar-bg': 'linear-gradient(145deg, #f0e6d8, #d8c8b8)',
+                '--profile-gradient': 'linear-gradient(160deg, #2a2018, #1a100a 85%)',
+                '--profile-accent': 'rgba(212,137,58,0.3)',
+                '--greet-bg': 'rgba(255,255,255,0.08)',
+                '--greet-color': '#c9cbd3',
+                '--social-bg': 'rgba(255,255,255,0.08)',
+                '--social-hover': 'rgba(255,255,255,0.18)',
+                '--social-icon-color': '#c9cbd3',
+                '--avatar-border-color': 'rgba(255,255,255,0.15)',
+                '--avatar-hint-bg': 'rgba(60,40,20,0.6)',
+                '--avatar-badge-bg': '#d4893a',
+                '--avatar-badge-border': '#2a2018',
+                '--avatar-default': '#9a9da5',
+                '--pname-focus-shadow': '#d4893a',
+                '--pname-hover-bg': 'rgba(255,255,255,0.06)',
+                '--pname-focus-bg': 'rgba(255,255,255,0.1)',
+                '--pname-placeholder': '#8a7a6a',
+                '--pbio-color': '#8a7a6a',
+                '--pstats-color': '#8a7a6a',
+                '--postmini-border': '#f0e6d8',
+                '--postmini-thumb-bg': 'linear-gradient(150deg, #d4893a, #b8702a)',
+                '--postmini-thumb-b': 'linear-gradient(150deg, #3d2c1a, #2a2018)',
+                '--postmini-text': '#3d2c1a',
+                '--music-status-color': '#b8a898',
+                '--music-time-color': '#b8a898',
+                '--music-progress-bg': '#f0e6d8',
+                '--music-progress-fill': '#d4893a',
+                '--music-volume-track': '#f0e6d8',
+                '--music-volume-thumb': '#d4893a',
+                '--ai-status-color': '#b8a898',
+                '--ai-chat-bg': '#faf2e8',
+                '--ai-msg-bot': '#ffffff',
+                '--ai-msg-user': '#d4893a',
+                '--ai-msg-system': '#e8863a',
+                '--ai-input-bg': '#ffffff',
+                '--ai-input-border': '#f0e6d8',
+                '--ai-input-focus-border': '#d4893a',
+                '--ai-send-btn-bg': '#d4893a',
+                '--ai-send-btn-hover': '#b8702a',
+                '--theme-current-color': '#8a7a6a',
+                '--theme-current-bg': '#f0e6d8',
+                '--theme-btn-bg': '#f0e6d8',
+                '--theme-btn-hover': '#e8dcc8',
+                '--theme-btn-active-shadow': '0 0 0 2px #d4893a',
+                '--theme-btn-text': '#8a7a6a',
+                '--theme-btn-active-text': '#3d2c1a',
+                '--pill-active-text': '#ffffff',
+                '--rail-hover-color': '#ffffff',
+                '--data-btn-export-bg': '#d4893a',
+                '--data-btn-export-hover': '#b8702a',
+                '--data-btn-import-bg': '#e8863a',
+                '--data-btn-import-hover': '#d4782e',
+                '--mode-btn-active-bg': '#d4893a',
+                '--mode-btn-active-color': '#ffffff',
+                '--mode-btn-hover-border': '#d4893a',
+                '--delete-hover-bg': '#fee2e2',
+                '--delete-hover-color': '#dc2626',
+                '--fcard-dark1': 'radial-gradient(circle at 80% 0%, #3d2c1a, #2a2018 60%)',
+                '--fcard-dark2': 'linear-gradient(155deg, #3d2c1a, #2a2018)',
+                '--fcard-tag': 'rgba(255,255,255,0.08)',
+                '--theme-btn-active-bg': 'rgba(212,137,58,0.1)',
+                '--input-border': '#f0e6d8',
+                '--input-focus-border': '#d4893a',
+                '--menu-item-active-color': '#d4893a',
+                '--avatar-badge-color': '#ffffff',
+                '--scrollbar-track': 'transparent',
+                '--editor-toolbar-bg': '#f0e6d8',
+                '--editor-toolbar-border': '#f0e6d8',
+                '--editor-toolbar-btn-hover': '#e8dcc8',
+                '--editor-content-bg': '#ffffff',
+                '--editor-content-border': '#f0e6d8',
+                '--type-btn-active-bg': '#d4893a',
+                '--type-btn-active-color': '#ffffff',
+                '--type-btn-border': '#f0e6d8',
+                '--type-btn-bg': '#fdf6ee',
+                '--type-btn-hover-border': '#d4893a'
+            };
+            // 简化为直接应用 light 或 dark 变体，其他主题基于 dark 调整部分颜色
+            let targetVars;
+            if (themeKey === 'light') targetVars = themes.light;
+            else if (themeKey === 'dark') targetVars = darkTheme;
+            else if (themeKey === 'warm') targetVars = warmTheme;
+            else if (themeKey === 'forest') {
+                targetVars = { ...darkTheme };
+                const f = {
+                    '--bg': '#eef5ee',
+                    '--panel': '#ffffff',
+                    '--ink': '#1a3a1a',
+                    '--ink-soft': '#5a7a5a',
+                    '--ink-faint': '#8aaa8a',
+                    '--line': '#d8e8d8',
+                    '--teal': '#3a9a5a',
+                    '--teal-hover': '#2a8a4a',
+                    '--topbar-bg': 'rgba(238,245,238,0.86)',
+                    '--modal-overlay': 'rgba(20,50,20,0.4)',
+                    '--pill-active': '#1a3a1a',
+                    '--pill-hover': '#d8e8d8',
+                    '--input-bg': '#eef5ee',
+                    '--input-focus': '#ffffff',
+                    '--btn-cancel-bg': '#d8e8d8',
+                    '--btn-cancel-hover': '#c8dcc8',
+                    '--rail-bg': '#ffffff',
+                    '--rail-border': '#d8e8d8',
+                    '--rail-hover-bg': '#1a3a1a',
+                    '--footer-border': '#d8e8d8',
+                    '--menu-item-hover': '#eef5ee',
+                    '--menu-item-active-bg': 'rgba(58,154,90,0.12)',
+                    '--menu-item-count-bg': '#d8e8d8',
+                    '--menu-item-count-active': 'rgba(58,154,90,0.2)',
+                    '--sidebar-overlay': 'rgba(20,50,20,0.4)',
+                    '--music-upload-border': '#d8e8d8',
+                    '--music-upload-hover-bg': 'rgba(58,154,90,0.06)',
+                    '--mode-btn-bg': '#d8e8d8',
+                    '--mode-btn-border': '#d8e8d8',
+                    '--data-btn-bg': '#d8e8d8',
+                    '--data-btn-border': '#d8e8d8',
+                    '--data-btn-hover-border': '#3a9a5a',
+                    '--data-btn-hover-color': '#3a9a5a',
+                    '--theme-btn-border': '#d8e8d8',
+                    '--theme-btn-active-border': '#3a9a5a',
+                    '--theme-name-color': '#5a7a5a',
+                    '--theme-name-active': '#1a3a1a',
+                    '--post-hover-shadow': 'rgba(60,120,60,0.06)',
+                    '--modal-shadow': 'rgba(20,50,20,0.2)',
+                    '--modal-bg': '#ffffff',
+                    '--scrollbar-thumb': '#d8e8d8',
+                    '--avatar-bg': 'linear-gradient(145deg, #2a4a2a, #1a3a1a)',
+                    '--profile-gradient': 'linear-gradient(160deg, #1a3a1a, #0a1a0a 85%)',
+                    '--profile-accent': 'rgba(58,154,90,0.35)',
+                    '--greet-color': '#c9dcc9',
+                    '--avatar-hint-bg': 'rgba(20,50,20,0.6)',
+                    '--avatar-badge-bg': '#3a9a5a',
+                    '--avatar-badge-border': '#1a3a1a',
+                    '--avatar-default': '#8aaa8a',
+                    '--pname-focus-shadow': '#3a9a5a',
+                    '--pname-placeholder': '#5a7a5a',
+                    '--pbio-color': '#5a7a5a',
+                    '--pstats-color': '#5a7a5a',
+                    '--postmini-border': '#d8e8d8',
+                    '--postmini-thumb-bg': 'linear-gradient(150deg, #3a9a5a, #2a8a4a)',
+                    '--postmini-thumb-b': 'linear-gradient(150deg, #1a3a1a, #2a4a2a)',
+                    '--postmini-text': '#1a3a1a',
+                    '--music-status-color': '#8aaa8a',
+                    '--music-time-color': '#8aaa8a',
+                    '--music-progress-bg': '#d8e8d8',
+                    '--music-progress-fill': '#3a9a5a',
+                    '--music-volume-track': '#d8e8d8',
+                    '--music-volume-thumb': '#3a9a5a',
+                    '--ai-status-color': '#8aaa8a',
+                    '--ai-chat-bg': '#e8f0e8',
+                    '--ai-msg-bot': '#ffffff',
+                    '--ai-msg-user': '#3a9a5a',
+                    '--ai-msg-system': '#e8863a',
+                    '--ai-input-bg': '#ffffff',
+                    '--ai-input-border': '#d8e8d8',
+                    '--ai-input-focus-border': '#3a9a5a',
+                    '--ai-send-btn-bg': '#3a9a5a',
+                    '--ai-send-btn-hover': '#2a8a4a',
+                    '--theme-current-color': '#5a7a5a',
+                    '--theme-current-bg': '#d8e8d8',
+                    '--theme-btn-bg': '#d8e8d8',
+                    '--theme-btn-hover': '#c8dcc8',
+                    '--theme-btn-active-shadow': '0 0 0 2px #3a9a5a',
+                    '--theme-btn-text': '#5a7a5a',
+                    '--theme-btn-active-text': '#1a3a1a',
+                    '--pill-active-text': '#ffffff',
+                    '--rail-hover-color': '#ffffff',
+                    '--data-btn-export-bg': '#3a9a5a',
+                    '--data-btn-export-hover': '#2a8a4a',
+                    '--data-btn-import-bg': '#e8863a',
+                    '--data-btn-import-hover': '#d4782e',
+                    '--mode-btn-active-bg': '#3a9a5a',
+                    '--mode-btn-active-color': '#ffffff',
+                    '--mode-btn-hover-border': '#3a9a5a',
+                    '--delete-hover-bg': '#fee2e2',
+                    '--delete-hover-color': '#dc2626',
+                    '--fcard-dark1': 'radial-gradient(circle at 80% 0%, #1a3a1a, #0a2a0a 60%)',
+                    '--fcard-dark2': 'linear-gradient(155deg, #1a3a1a, #0a2a0a)',
+                    '--fcard-tag': 'rgba(255,255,255,0.08)',
+                    '--theme-btn-active-bg': 'rgba(58,154,90,0.1)',
+                    '--input-border': '#d8e8d8',
+                    '--input-focus-border': '#3a9a5a',
+                    '--menu-item-active-color': '#3a9a5a',
+                    '--avatar-badge-color': '#ffffff',
+                    '--scrollbar-track': 'transparent',
+                    '--editor-toolbar-bg': '#d8e8d8',
+                    '--editor-toolbar-border': '#d8e8d8',
+                    '--editor-toolbar-btn-hover': '#c8dcc8',
+                    '--editor-content-bg': '#ffffff',
+                    '--editor-content-border': '#d8e8d8',
+                    '--type-btn-active-bg': '#3a9a5a',
+                    '--type-btn-active-color': '#ffffff',
+                    '--type-btn-border': '#d8e8d8',
+                    '--type-btn-bg': '#eef5ee',
+                    '--type-btn-hover-border': '#3a9a5a'
+                };
+                Object.assign(targetVars, f);
+            } else if (themeKey === 'ocean') {
+                targetVars = { ...darkTheme };
+                const o = {
+                    '--bg': '#eef4f8',
+                    '--panel': '#ffffff',
+                    '--ink': '#1a2a4a',
+                    '--ink-soft': '#5a7a9a',
+                    '--ink-faint': '#8aaaba',
+                    '--line': '#d8e4ec',
+                    '--teal': '#2a8aaa',
+                    '--teal-hover': '#1a7a9a',
+                    '--topbar-bg': 'rgba(238,244,248,0.86)',
+                    '--modal-overlay': 'rgba(20,40,70,0.4)',
+                    '--pill-active': '#1a2a4a',
+                    '--pill-hover': '#d8e4ec',
+                    '--input-bg': '#eef4f8',
+                    '--input-focus': '#ffffff',
+                    '--btn-cancel-bg': '#d8e4ec',
+                    '--btn-cancel-hover': '#c8d8e4',
+                    '--rail-bg': '#ffffff',
+                    '--rail-border': '#d8e4ec',
+                    '--rail-hover-bg': '#1a2a4a',
+                    '--footer-border': '#d8e4ec',
+                    '--menu-item-hover': '#eef4f8',
+                    '--menu-item-active-bg': 'rgba(42,138,170,0.12)',
+                    '--menu-item-count-bg': '#d8e4ec',
+                    '--menu-item-count-active': 'rgba(42,138,170,0.2)',
+                    '--sidebar-overlay': 'rgba(20,40,70,0.4)',
+                    '--music-upload-border': '#d8e4ec',
+                    '--music-upload-hover-bg': 'rgba(42,138,170,0.06)',
+                    '--mode-btn-bg': '#d8e4ec',
+                    '--mode-btn-border': '#d8e4ec',
+                    '--data-btn-bg': '#d8e4ec',
+                    '--data-btn-border': '#d8e4ec',
+                    '--data-btn-hover-border': '#2a8aaa',
+                    '--data-btn-hover-color': '#2a8aaa',
+                    '--theme-btn-border': '#d8e4ec',
+                    '--theme-btn-active-border': '#2a8aaa',
+                    '--theme-name-color': '#5a7a9a',
+                    '--theme-name-active': '#1a2a4a',
+                    '--post-hover-shadow': 'rgba(40,80,120,0.06)',
+                    '--modal-shadow': 'rgba(20,40,70,0.2)',
+                    '--modal-bg': '#ffffff',
+                    '--scrollbar-thumb': '#d8e4ec',
+                    '--avatar-bg': 'linear-gradient(145deg, #2a4a6a, #1a2a4a)',
+                    '--profile-gradient': 'linear-gradient(160deg, #1a2a4a, #0a1a2a 85%)',
+                    '--profile-accent': 'rgba(42,138,170,0.35)',
+                    '--greet-color': '#c9dce8',
+                    '--avatar-hint-bg': 'rgba(20,40,70,0.6)',
+                    '--avatar-badge-bg': '#2a8aaa',
+                    '--avatar-badge-border': '#1a2a4a',
+                    '--avatar-default': '#8aaaba',
+                    '--pname-focus-shadow': '#2a8aaa',
+                    '--pname-placeholder': '#5a7a9a',
+                    '--pbio-color': '#5a7a9a',
+                    '--pstats-color': '#5a7a9a',
+                    '--postmini-border': '#d8e4ec',
+                    '--postmini-thumb-bg': 'linear-gradient(150deg, #2a8aaa, #1a7a9a)',
+                    '--postmini-thumb-b': 'linear-gradient(150deg, #1a2a4a, #2a4a6a)',
+                    '--postmini-text': '#1a2a4a',
+                    '--music-status-color': '#8aaaba',
+                    '--music-time-color': '#8aaaba',
+                    '--music-progress-bg': '#d8e4ec',
+                    '--music-progress-fill': '#2a8aaa',
+                    '--music-volume-track': '#d8e4ec',
+                    '--music-volume-thumb': '#2a8aaa',
+                    '--ai-status-color': '#8aaaba',
+                    '--ai-chat-bg': '#e8f0f4',
+                    '--ai-msg-bot': '#ffffff',
+                    '--ai-msg-user': '#2a8aaa',
+                    '--ai-msg-system': '#e8863a',
+                    '--ai-input-bg': '#ffffff',
+                    '--ai-input-border': '#d8e4ec',
+                    '--ai-input-focus-border': '#2a8aaa',
+                    '--ai-send-btn-bg': '#2a8aaa',
+                    '--ai-send-btn-hover': '#1a7a9a',
+                    '--theme-current-color': '#5a7a9a',
+                    '--theme-current-bg': '#d8e4ec',
+                    '--theme-btn-bg': '#d8e4ec',
+                    '--theme-btn-hover': '#c8d8e4',
+                    '--theme-btn-active-shadow': '0 0 0 2px #2a8aaa',
+                    '--theme-btn-text': '#5a7a9a',
+                    '--theme-btn-active-text': '#1a2a4a',
+                    '--pill-active-text': '#ffffff',
+                    '--rail-hover-color': '#ffffff',
+                    '--data-btn-export-bg': '#2a8aaa',
+                    '--data-btn-export-hover': '#1a7a9a',
+                    '--data-btn-import-bg': '#e8863a',
+                    '--data-btn-import-hover': '#d4782e',
+                    '--mode-btn-active-bg': '#2a8aaa',
+                    '--mode-btn-active-color': '#ffffff',
+                    '--mode-btn-hover-border': '#2a8aaa',
+                    '--delete-hover-bg': '#fee2e2',
+                    '--delete-hover-color': '#dc2626',
+                    '--fcard-dark1': 'radial-gradient(circle at 80% 0%, #1a2a4a, #0a1a3a 60%)',
+                    '--fcard-dark2': 'linear-gradient(155deg, #1a2a4a, #0a1a3a)',
+                    '--fcard-tag': 'rgba(255,255,255,0.08)',
+                    '--theme-btn-active-bg': 'rgba(42,138,170,0.1)',
+                    '--input-border': '#d8e4ec',
+                    '--input-focus-border': '#2a8aaa',
+                    '--menu-item-active-color': '#2a8aaa',
+                    '--avatar-badge-color': '#ffffff',
+                    '--scrollbar-track': 'transparent',
+                    '--editor-toolbar-bg': '#d8e4ec',
+                    '--editor-toolbar-border': '#d8e4ec',
+                    '--editor-toolbar-btn-hover': '#c8d8e4',
+                    '--editor-content-bg': '#ffffff',
+                    '--editor-content-border': '#d8e4ec',
+                    '--type-btn-active-bg': '#2a8aaa',
+                    '--type-btn-active-color': '#ffffff',
+                    '--type-btn-border': '#d8e4ec',
+                    '--type-btn-bg': '#eef4f8',
+                    '--type-btn-hover-border': '#2a8aaa'
+                };
+                Object.assign(targetVars, o);
+            } else if (themeKey === 'sakura') {
+                targetVars = { ...darkTheme };
+                const s = {
+                    '--bg': '#fdf0f0',
+                    '--panel': '#ffffff',
+                    '--ink': '#4a2a2a',
+                    '--ink-soft': '#9a6a6a',
+                    '--ink-faint': '#ca9a9a',
+                    '--line': '#f0d8d8',
+                    '--teal': '#d45a7a',
+                    '--teal-hover': '#b84a6a',
+                    '--topbar-bg': 'rgba(253,240,240,0.86)',
+                    '--modal-overlay': 'rgba(70,30,40,0.4)',
+                    '--pill-active': '#4a2a2a',
+                    '--pill-hover': '#f0d8d8',
+                    '--input-bg': '#fdf0f0',
+                    '--input-focus': '#ffffff',
+                    '--btn-cancel-bg': '#f0d8d8',
+                    '--btn-cancel-hover': '#e8c8c8',
+                    '--rail-bg': '#ffffff',
+                    '--rail-border': '#f0d8d8',
+                    '--rail-hover-bg': '#4a2a2a',
+                    '--footer-border': '#f0d8d8',
+                    '--menu-item-hover': '#fdf0f0',
+                    '--menu-item-active-bg': 'rgba(212,90,122,0.12)',
+                    '--menu-item-count-bg': '#f0d8d8',
+                    '--menu-item-count-active': 'rgba(212,90,122,0.2)',
+                    '--sidebar-overlay': 'rgba(70,30,40,0.4)',
+                    '--music-upload-border': '#f0d8d8',
+                    '--music-upload-hover-bg': 'rgba(212,90,122,0.06)',
+                    '--mode-btn-bg': '#f0d8d8',
+                    '--mode-btn-border': '#f0d8d8',
+                    '--data-btn-bg': '#f0d8d8',
+                    '--data-btn-border': '#f0d8d8',
+                    '--data-btn-hover-border': '#d45a7a',
+                    '--data-btn-hover-color': '#d45a7a',
+                    '--theme-btn-border': '#f0d8d8',
+                    '--theme-btn-active-border': '#d45a7a',
+                    '--theme-name-color': '#9a6a6a',
+                    '--theme-name-active': '#4a2a2a',
+                    '--post-hover-shadow': 'rgba(180,80,100,0.06)',
+                    '--modal-shadow': 'rgba(70,30,40,0.2)',
+                    '--modal-bg': '#ffffff',
+                    '--scrollbar-thumb': '#f0d8d8',
+                    '--avatar-bg': 'linear-gradient(145deg, #6a3a3a, #4a2a2a)',
+                    '--profile-gradient': 'linear-gradient(160deg, #3a1a1a, #2a0a0a 85%)',
+                    '--profile-accent': 'rgba(212,90,122,0.35)',
+                    '--greet-color': '#dcc9c9',
+                    '--avatar-hint-bg': 'rgba(70,30,40,0.6)',
+                    '--avatar-badge-bg': '#d45a7a',
+                    '--avatar-badge-border': '#3a1a1a',
+                    '--avatar-default': '#ca9a9a',
+                    '--pname-focus-shadow': '#d45a7a',
+                    '--pname-placeholder': '#9a6a6a',
+                    '--pbio-color': '#9a6a6a',
+                    '--pstats-color': '#9a6a6a',
+                    '--postmini-border': '#f0d8d8',
+                    '--postmini-thumb-bg': 'linear-gradient(150deg, #d45a7a, #b84a6a)',
+                    '--postmini-thumb-b': 'linear-gradient(150deg, #4a2a2a, #6a3a3a)',
+                    '--postmini-text': '#4a2a2a',
+                    '--music-status-color': '#ca9a9a',
+                    '--music-time-color': '#ca9a9a',
+                    '--music-progress-bg': '#f0d8d8',
+                    '--music-progress-fill': '#d45a7a',
+                    '--music-volume-track': '#f0d8d8',
+                    '--music-volume-thumb': '#d45a7a',
+                    '--ai-status-color': '#ca9a9a',
+                    '--ai-chat-bg': '#f8ecec',
+                    '--ai-msg-bot': '#ffffff',
+                    '--ai-msg-user': '#d45a7a',
+                    '--ai-msg-system': '#e8863a',
+                    '--ai-input-bg': '#ffffff',
+                    '--ai-input-border': '#f0d8d8',
+                    '--ai-input-focus-border': '#d45a7a',
+                    '--ai-send-btn-bg': '#d45a7a',
+                    '--ai-send-btn-hover': '#b84a6a',
+                    '--theme-current-color': '#9a6a6a',
+                    '--theme-current-bg': '#f0d8d8',
+                    '--theme-btn-bg': '#f0d8d8',
+                    '--theme-btn-hover': '#e8c8c8',
+                    '--theme-btn-active-shadow': '0 0 0 2px #d45a7a',
+                    '--theme-btn-text': '#9a6a6a',
+                    '--theme-btn-active-text': '#4a2a2a',
+                    '--pill-active-text': '#ffffff',
+                    '--rail-hover-color': '#ffffff',
+                    '--data-btn-export-bg': '#d45a7a',
+                    '--data-btn-export-hover': '#b84a6a',
+                    '--data-btn-import-bg': '#e8863a',
+                    '--data-btn-import-hover': '#d4782e',
+                    '--mode-btn-active-bg': '#d45a7a',
+                    '--mode-btn-active-color': '#ffffff',
+                    '--mode-btn-hover-border': '#d45a7a',
+                    '--delete-hover-bg': '#fee2e2',
+                    '--delete-hover-color': '#dc2626',
+                    '--fcard-dark1': 'radial-gradient(circle at 80% 0%, #3a1a1a, #2a0a0a 60%)',
+                    '--fcard-dark2': 'linear-gradient(155deg, #3a1a1a, #2a0a0a)',
+                    '--fcard-tag': 'rgba(255,255,255,0.08)',
+                    '--theme-btn-active-bg': 'rgba(212,90,122,0.1)',
+                    '--input-border': '#f0d8d8',
+                    '--input-focus-border': '#d45a7a',
+                    '--menu-item-active-color': '#d45a7a',
+                    '--avatar-badge-color': '#ffffff',
+                    '--scrollbar-track': 'transparent',
+                    '--editor-toolbar-bg': '#f0d8d8',
+                    '--editor-toolbar-border': '#f0d8d8',
+                    '--editor-toolbar-btn-hover': '#e8c8c8',
+                    '--editor-content-bg': '#ffffff',
+                    '--editor-content-border': '#f0d8d8',
+                    '--type-btn-active-bg': '#d45a7a',
+                    '--type-btn-active-color': '#ffffff',
+                    '--type-btn-border': '#f0d8d8',
+                    '--type-btn-bg': '#fdf0f0',
+                    '--type-btn-hover-border': '#d45a7a'
+                };
+                Object.assign(targetVars, s);
+            } else if (themeKey === 'violet') {
+                targetVars = { ...darkTheme };
+                const v = {
+                    '--bg': '#f4eef8',
+                    '--panel': '#ffffff',
+                    '--ink': '#2a1a4a',
+                    '--ink-soft': '#7a5a9a',
+                    '--ink-faint': '#aa8aba',
+                    '--line': '#e8d8ec',
+                    '--teal': '#7a3aaa',
+                    '--teal-hover': '#6a2a9a',
+                    '--topbar-bg': 'rgba(244,238,248,0.86)',
+                    '--modal-overlay': 'rgba(40,20,70,0.4)',
+                    '--pill-active': '#2a1a4a',
+                    '--pill-hover': '#e8d8ec',
+                    '--input-bg': '#f4eef8',
+                    '--input-focus': '#ffffff',
+                    '--btn-cancel-bg': '#e8d8ec',
+                    '--btn-cancel-hover': '#dcc8e4',
+                    '--rail-bg': '#ffffff',
+                    '--rail-border': '#e8d8ec',
+                    '--rail-hover-bg': '#2a1a4a',
+                    '--footer-border': '#e8d8ec',
+                    '--menu-item-hover': '#f4eef8',
+                    '--menu-item-active-bg': 'rgba(122,58,170,0.12)',
+                    '--menu-item-count-bg': '#e8d8ec',
+                    '--menu-item-count-active': 'rgba(122,58,170,0.2)',
+                    '--sidebar-overlay': 'rgba(40,20,70,0.4)',
+                    '--music-upload-border': '#e8d8ec',
+                    '--music-upload-hover-bg': 'rgba(122,58,170,0.06)',
+                    '--mode-btn-bg': '#e8d8ec',
+                    '--mode-btn-border': '#e8d8ec',
+                    '--data-btn-bg': '#e8d8ec',
+                    '--data-btn-border': '#e8d8ec',
+                    '--data-btn-hover-border': '#7a3aaa',
+                    '--data-btn-hover-color': '#7a3aaa',
+                    '--theme-btn-border': '#e8d8ec',
+                    '--theme-btn-active-border': '#7a3aaa',
+                    '--theme-name-color': '#7a5a9a',
+                    '--theme-name-active': '#2a1a4a',
+                    '--post-hover-shadow': 'rgba(100,60,140,0.06)',
+                    '--modal-shadow': 'rgba(40,20,70,0.2)',
+                    '--modal-bg': '#ffffff',
+                    '--scrollbar-thumb': '#e8d8ec',
+                    '--avatar-bg': 'linear-gradient(145deg, #4a2a6a, #2a1a4a)',
+                    '--profile-gradient': 'linear-gradient(160deg, #2a1a4a, #1a0a2a 85%)',
+                    '--profile-accent': 'rgba(122,58,170,0.35)',
+                    '--greet-color': '#dcc9e8',
+                    '--avatar-hint-bg': 'rgba(40,20,70,0.6)',
+                    '--avatar-badge-bg': '#7a3aaa',
+                    '--avatar-badge-border': '#2a1a4a',
+                    '--avatar-default': '#aa8aba',
+                    '--pname-focus-shadow': '#7a3aaa',
+                    '--pname-placeholder': '#7a5a9a',
+                    '--pbio-color': '#7a5a9a',
+                    '--pstats-color': '#7a5a9a',
+                    '--postmini-border': '#e8d8ec',
+                    '--postmini-thumb-bg': 'linear-gradient(150deg, #7a3aaa, #6a2a9a)',
+                    '--postmini-thumb-b': 'linear-gradient(150deg, #2a1a4a, #4a2a6a)',
+                    '--postmini-text': '#2a1a4a',
+                    '--music-status-color': '#aa8aba',
+                    '--music-time-color': '#aa8aba',
+                    '--music-progress-bg': '#e8d8ec',
+                    '--music-progress-fill': '#7a3aaa',
+                    '--music-volume-track': '#e8d8ec',
+                    '--music-volume-thumb': '#7a3aaa',
+                    '--ai-status-color': '#aa8aba',
+                    '--ai-chat-bg': '#f0e8f4',
+                    '--ai-msg-bot': '#ffffff',
+                    '--ai-msg-user': '#7a3aaa',
+                    '--ai-msg-system': '#e8863a',
+                    '--ai-input-bg': '#ffffff',
+                    '--ai-input-border': '#e8d8ec',
+                    '--ai-input-focus-border': '#7a3aaa',
+                    '--ai-send-btn-bg': '#7a3aaa',
+                    '--ai-send-btn-hover': '#6a2a9a',
+                    '--theme-current-color': '#7a5a9a',
+                    '--theme-current-bg': '#e8d8ec',
+                    '--theme-btn-bg': '#e8d8ec',
+                    '--theme-btn-hover': '#dcc8e4',
+                    '--theme-btn-active-shadow': '0 0 0 2px #7a3aaa',
+                    '--theme-btn-text': '#7a5a9a',
+                    '--theme-btn-active-text': '#2a1a4a',
+                    '--pill-active-text': '#ffffff',
+                    '--rail-hover-color': '#ffffff',
+                    '--data-btn-export-bg': '#7a3aaa',
+                    '--data-btn-export-hover': '#6a2a9a',
+                    '--data-btn-import-bg': '#e8863a',
+                    '--data-btn-import-hover': '#d4782e',
+                    '--mode-btn-active-bg': '#7a3aaa',
+                    '--mode-btn-active-color': '#ffffff',
+                    '--mode-btn-hover-border': '#7a3aaa',
+                    '--delete-hover-bg': '#fee2e2',
+                    '--delete-hover-color': '#dc2626',
+                    '--fcard-dark1': 'radial-gradient(circle at 80% 0%, #2a1a4a, #1a0a3a 60%)',
+                    '--fcard-dark2': 'linear-gradient(155deg, #2a1a4a, #1a0a3a)',
+                    '--fcard-tag': 'rgba(255,255,255,0.08)',
+                    '--theme-btn-active-bg': 'rgba(122,58,170,0.1)',
+                    '--input-border': '#e8d8ec',
+                    '--input-focus-border': '#7a3aaa',
+                    '--menu-item-active-color': '#7a3aaa',
+                    '--avatar-badge-color': '#ffffff',
+                    '--scrollbar-track': 'transparent',
+                    '--editor-toolbar-bg': '#e8d8ec',
+                    '--editor-toolbar-border': '#e8d8ec',
+                    '--editor-toolbar-btn-hover': '#dcc8e4',
+                    '--editor-content-bg': '#ffffff',
+                    '--editor-content-border': '#e8d8ec',
+                    '--type-btn-active-bg': '#7a3aaa',
+                    '--type-btn-active-color': '#ffffff',
+                    '--type-btn-border': '#e8d8ec',
+                    '--type-btn-bg': '#f4eef8',
+                    '--type-btn-hover-border': '#7a3aaa'
+                };
+                Object.assign(targetVars, v);
+            } else {
+                targetVars = themes.light;
+            }
+
+            for (const [key, value] of Object.entries(targetVars)) {
+                root.style.setProperty(key, value);
+            }
+
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === themeKey);
+            });
+
+            const nameMap = {
+                light: '☀️ 白天',
+                dark: '🌙 黑夜',
+                warm: '🌅 暖阳',
+                forest: '🌲 森林',
+                ocean: '🌊 海洋',
+                sakura: '🌸 樱花',
+                violet: '💜 紫罗兰'
+            };
+            document.getElementById('themeCurrent').innerHTML =
+                `当前主题：<strong>${nameMap[themeKey] || '☀️ 白天'}</strong>`;
+            localStorage.setItem('ZIH_theme', themeKey);
+        }
+
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const theme = this.dataset.theme;
+                if (theme) applyTheme(theme);
+            });
+        });
+
+        // ============================================================
+        // 14. 初始化
+        // ============================================================
+        const initPosts = getPosts();
+        let needSave = false;
+        initPosts.forEach(p => {
+            if (p.views === undefined) { p.views = 0;
+                needSave = true; }
+            if (p.type === undefined) { p.type = 'article';
+                needSave = true; }
+            if (p.content === undefined) { p.content = '';
+                needSave = true; }
+        });
+        if (needSave) savePosts(initPosts);
+
+        const savedTheme = localStorage.getItem('ZIH_theme') || 'light';
+        applyTheme(savedTheme);
+
+        renderProfile();
+        currentCategory = '全部';
+        renderAll();
+        renderGallery();
+        renderComments();
+        renderContacts();
+        loadMusic();
+        switchMode('ai');
+        showTab('blog', false);
+
+        console.log('🚀 博客小栈已加载！');
+        console.log('📝 支持写文章和新闻，富文本编辑器可插入图片、链接、列表等。');
+        console.log('📊 点击文章卡片可查看详情并增加阅读量。');
+    
