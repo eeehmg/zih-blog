@@ -642,26 +642,40 @@
             const container = document.getElementById('gallery-grid');
             const images = getImages();
             if (images.length === 0) {
-                container.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">暂无内容，点击「上传图片」或「上传视频」添加吧！</p>`;
+                container.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">暂无内容，可上传图片/视频，或嵌入 B 站视频</p>`;
                 return;
             }
             let html = '';
             images.forEach(img => {
-                const isVideo = img.type === 'video';
-                const mediaHtml = isVideo
-                    ? `<video src="${img.url}" preload="metadata" playsinline muted></video>
-                       <span class="media-badge video">🎬 视频</span>`
-                    : `<img src="${img.url}" alt="${img.title || ''}" loading="lazy" />
+                const t = img.type || 'image';
+                let mediaHtml = '';
+                let badge = '';
+                let footHint = '点击查看';
+                if (t === 'bilibili') {
+                    mediaHtml = `
+                        <div class="bili-thumb">
+                            <div class="bili-play">▶</div>
+                            <div class="bili-id">${img.bvid || ''}</div>
+                        </div>
+                        <span class="media-badge bili">📺 B站</span>`;
+                    footHint = '点击播放';
+                } else if (t === 'video') {
+                    mediaHtml = `<video src="${img.url}" preload="metadata" playsinline muted></video>
+                       <span class="media-badge video">🎬 视频</span>`;
+                    footHint = '点击播放';
+                } else {
+                    mediaHtml = `<img src="${img.url}" alt="${img.title || ''}" loading="lazy" />
                        <span class="media-badge">📷 图片</span>`;
+                }
                 html += `
-                    <div class="gallery-item" data-id="${img.id}" data-type="${isVideo ? 'video' : 'image'}" onclick="openMediaViewer(${img.id})">
+                    <div class="gallery-item" data-id="${img.id}" data-type="${t}" onclick="openMediaViewer(${img.id})">
                         ${mediaHtml}
                         <div class="caption">
-                            <strong>${img.title || (isVideo ? '未命名视频' : '未命名图片')}</strong>
+                            <strong>${img.title || (t === 'bilibili' ? (img.bvid || 'B站视频') : t === 'video' ? '未命名视频' : '未命名图片')}</strong>
                             ${img.desc ? img.desc : ''}
                         </div>
                         <div class="foot">
-                            <span style="font-size:11px;color:var(--ink-faint);">${isVideo ? '点击播放' : '点击查看'}</span>
+                            <span style="font-size:11px;color:var(--ink-faint);">${footHint}</span>
                             <button class="delete-btn" onclick="event.stopPropagation();deleteImage(${img.id})" title="删除">🗑️</button>
                         </div>
                     </div>
@@ -680,20 +694,29 @@
             const body = document.getElementById('mediaModalBody');
             const title = document.getElementById('mediaModalTitle');
             const fsBtn = document.getElementById('mediaFullscreenBtn');
-            title.textContent = item.title || (item.type === 'video' ? '视频预览' : '图片预览');
+            const tip = document.querySelector('.media-modal-tip');
+            title.textContent = item.title || (item.type === 'bilibili' ? 'B站视频' : item.type === 'video' ? '视频预览' : '图片预览');
             body.innerHTML = '';
             currentMediaEl = null;
 
-            if (item.type === 'video') {
+            if (item.type === 'bilibili' && item.bvid) {
+                const wrap = document.createElement('div');
+                wrap.className = 'bili-iframe-wrap';
+                // high_quality=1 & danmaku optional; as_wide=1
+                const src = `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(item.bvid)}&page=1&high_quality=1&danmaku=0`;
+                wrap.innerHTML = `<iframe src="${src}" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" allow="fullscreen; encrypted-media"></iframe>`;
+                body.appendChild(wrap);
+                currentMediaEl = wrap;
+                if (fsBtn) fsBtn.style.display = 'inline-flex';
+                if (tip) tip.textContent = 'B 站嵌入播放 · 点「全屏」可尝试全屏（部分浏览器需在播放器内点全屏）';
+            } else if (item.type === 'video') {
                 const video = document.createElement('video');
                 video.src = item.url;
                 video.controls = true;
                 video.autoplay = true;
                 video.playsInline = true;
                 video.setAttribute('playsinline', '');
-                // 点击视频本身：播放/暂停
                 video.addEventListener('click', function(e) {
-                    // 避免点控制条时也触发
                     if (e.target === video) {
                         if (video.paused) video.play();
                         else video.pause();
@@ -702,17 +725,18 @@
                 body.appendChild(video);
                 currentMediaEl = video;
                 if (fsBtn) fsBtn.style.display = 'inline-flex';
+                if (tip) tip.textContent = '点击视频可播放/暂停 · 点「全屏」进入全屏播放';
             } else {
                 const img = document.createElement('img');
                 img.src = item.url;
                 img.alt = item.title || '';
-                // 点击图片也可尝试全屏
                 img.addEventListener('click', function() {
                     requestMediaFullscreen(img);
                 });
                 body.appendChild(img);
                 currentMediaEl = img;
                 if (fsBtn) fsBtn.style.display = 'inline-flex';
+                if (tip) tip.textContent = '点击图片可尝试全屏';
             }
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
@@ -846,6 +870,71 @@
                 videoInput.value = '';
             });
         }
+
+        // ----- B 站嵌入 -----
+        function parseBilibiliBvid(input) {
+            if (!input) return null;
+            const s = String(input).trim();
+            const m = s.match(/BV[0-9A-Za-z]+/);
+            return m ? m[0] : null;
+        }
+
+        function addBilibiliVideo(raw, title) {
+            const bvid = parseBilibiliBvid(raw);
+            if (!bvid) {
+                alert('请粘贴带 BV 号的链接，或直接填 BV 号\n例：https://www.bilibili.com/video/BV1xx411c7mD\n或：BV1xx411c7mD');
+                return false;
+            }
+            const images = getImages();
+            images.push({
+                id: genImageId(),
+                type: 'bilibili',
+                bvid: bvid,
+                url: 'https://www.bilibili.com/video/' + bvid,
+                title: (title && title.trim()) || bvid,
+                desc: '来自 B 站'
+            });
+            try {
+                saveImages(images);
+                renderGallery();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        (function bindBiliModal() {
+            const modal = document.getElementById('biliModal');
+            const form = document.getElementById('biliForm');
+            const openBtn = document.getElementById('addBiliBtn');
+            const closeBtn = document.getElementById('closeBiliBtn');
+            if (!modal || !form) return;
+            openBtn?.addEventListener('click', () => {
+                modal.classList.add('active');
+                document.getElementById('biliInput')?.focus();
+            });
+            closeBtn?.addEventListener('click', () => {
+                modal.classList.remove('active');
+                form.reset();
+            });
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                    form.reset();
+                }
+            });
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const raw = document.getElementById('biliInput').value;
+                const title = document.getElementById('biliTitle').value;
+                if (addBilibiliVideo(raw, title)) {
+                    modal.classList.remove('active');
+                    form.reset();
+                    showTab('gallery', false);
+                }
+            });
+        })();
+
 
         // ============================================================
         // 5. 评论系统（支持回复）

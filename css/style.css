@@ -2857,3 +2857,53 @@
             border-color: var(--teal);
             background: rgba(23, 182, 166, 0.12);
         }
+
+        .gallery-header .btn-upload-bili {
+            background: #fb7299;
+        }
+        .gallery-header .btn-upload-bili:hover {
+            background: #e85a84;
+        }
+        .gallery-item .bili-thumb {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            gap: 8px;
+            position: relative;
+        }
+        .gallery-item .bili-thumb .bili-play {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #fb7299;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 16px rgba(251,114,153,0.4);
+        }
+        .gallery-item .bili-thumb .bili-id {
+            font-size: 12px;
+            opacity: 0.85;
+            font-family: ui-monospace, monospace;
+        }
+        .gallery-item .media-badge.bili {
+            background: rgba(251, 114, 153, 0.9);
+        }
+        .media-modal-body .bili-iframe-wrap {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            max-height: 70vh;
+            background: #000;
+        }
+        .media-modal-body .bili-iframe-wrap iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+        }

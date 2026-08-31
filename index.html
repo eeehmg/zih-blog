@@ -268,7 +268,7 @@
                     <div class="header-actions">
                         <div>
                             <h2>📷 预览集</h2>
-                            <p>上传本地图片或视频，管理你的媒体</p>
+                            <p>上传图片/本地小视频，或嵌入 B 站视频（大视频推荐）</p>
                         </div>
                         <div class="gallery-upload-btns">
                             <button class="btn-upload" id="uploadImageBtn">
@@ -278,6 +278,9 @@
                             <button class="btn-upload btn-upload-video" id="uploadVideoBtn">
                                 🎬 上传视频
                                 <input type="file" id="videoInput" accept="video/*" multiple />
+                            </button>
+                            <button class="btn-upload btn-upload-bili" id="addBiliBtn" type="button">
+                                📺 嵌入 B 站
                             </button>
                         </div>
                     </div>
@@ -438,6 +441,24 @@
                 <input type="text" id="contactLabel" placeholder="例如：微信、抖音" required />
                 <div class="actions">
                     <button type="button" class="btn-cancel" id="closeAddContactBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 嵌入 B 站视频 ===== -->
+    <div class="modal-overlay" id="biliModal">
+        <div class="modal">
+            <h2>📺 嵌入 B 站视频</h2>
+            <p class="sub">粘贴 B 站视频链接或 BV 号，无需把大文件传到 GitHub</p>
+            <form id="biliForm">
+                <label>视频链接或 BV 号 <span class="required">*</span></label>
+                <input type="text" id="biliInput" placeholder="例如：https://www.bilibili.com/video/BVxxxxxx 或 BVxxxxxx" required />
+                <label>标题（选填）</label>
+                <input type="text" id="biliTitle" placeholder="默认使用 BV 号" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeBiliBtn">取消</button>
                     <button type="submit" class="btn-submit">添加</button>
                 </div>
             </form>
