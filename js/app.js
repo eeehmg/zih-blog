@@ -3,13 +3,20 @@
         // 0. Profile 管理
         // ============================================================
         const PROFILE_KEY = 'ZIH_profile';
+        // 默认头像：放在 assets/avatar/avatar.png（可换成自己的图）
+        const DEFAULT_AVATAR = 'assets/avatar/avatar.png';
 
         function getProfile() {
             const stored = localStorage.getItem(PROFILE_KEY);
             if (stored) {
-                try { return JSON.parse(stored); } catch (_) {}
+                try {
+                    const p = JSON.parse(stored);
+                    // 若 localStorage 无头像，回退到 assets 默认头像
+                    if (!p.avatar) p.avatar = DEFAULT_AVATAR;
+                    return p;
+                } catch (_) {}
             }
-            const defaults = { avatar: '', name: 'ZIH' };
+            const defaults = { avatar: DEFAULT_AVATAR, name: 'ZIH' };
             localStorage.setItem(PROFILE_KEY, JSON.stringify(defaults));
             return defaults;
         }
@@ -25,6 +32,12 @@
             const svgEl = document.querySelector('#avatarContent svg');
             if (nameEl) nameEl.textContent = profile.name || 'ZIH';
             if (profile.avatar) {
+                imgEl.onerror = function() {
+                    // 资源不存在时回退到默认图标
+                    this.style.display = 'none';
+                    this.src = '';
+                    if (svgEl) svgEl.style.display = 'block';
+                };
                 imgEl.src = profile.avatar;
                 imgEl.style.display = 'block';
                 if (svgEl) svgEl.style.display = 'none';
@@ -101,8 +114,13 @@
             if (stored) {
                 try {
                     const posts = JSON.parse(stored);
-                    posts.forEach(p => { if (p.views === undefined) p.views = 0; if (p.type === undefined) p.type = 'article'; if (p
-                            .content === undefined) p.content = ''; });
+                    posts.forEach(p => {
+                        if (p.views === undefined) p.views = 0;
+                        if (p.type === undefined) p.type = 'article';
+                        if (p.content === undefined) p.content = '';
+                        if (p.likes === undefined) p.likes = 0;
+                        if (p.pinned === undefined) p.pinned = false;
+                    });
                     return posts;
                 } catch (_) {}
             }
@@ -111,6 +129,41 @@
         }
 
         function savePosts(posts) { localStorage.setItem(STORAGE_KEY, JSON.stringify(posts)); }
+
+        const LIKED_KEY = 'ZIH_liked_posts';
+        function getLikedSet() {
+            try { return new Set(JSON.parse(localStorage.getItem(LIKED_KEY) || '[]')); } catch (_) { return new Set(); }
+        }
+        function saveLikedSet(set) { localStorage.setItem(LIKED_KEY, JSON.stringify([...set])); }
+
+        function toggleLike(id, ev) {
+            if (ev) ev.stopPropagation();
+            const posts = getPosts();
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+            const liked = getLikedSet();
+            if (liked.has(id)) {
+                liked.delete(id);
+                post.likes = Math.max(0, (post.likes || 0) - 1);
+            } else {
+                liked.add(id);
+                post.likes = (post.likes || 0) + 1;
+            }
+            saveLikedSet(liked);
+            savePosts(posts);
+            renderGrid(posts, currentCategory, currentSearch);
+        }
+
+        function togglePin(id, ev) {
+            if (ev) ev.stopPropagation();
+            const posts = getPosts();
+            const post = posts.find(p => p.id === id);
+            if (!post) return;
+            post.pinned = !post.pinned;
+            savePosts(posts);
+            renderAll();
+        }
+
 
         function genId() { return Date.now() + Math.floor(Math.random() * 1000); }
 
@@ -123,6 +176,7 @@
         }
 
         let currentCategory = '全部';
+        let currentSearch = '';
 
         function getAllCategories(posts) {
             const cats = new Set();
@@ -135,17 +189,39 @@
             return posts.filter(p => p.category === category).length;
         }
 
-        function filterPosts(posts, category) {
-            if (category === '全部') return posts;
-            return posts.filter(p => p.category === category);
+        function filterPosts(posts, category, keyword) {
+            let list = posts;
+            if (category && category !== '全部') {
+                list = list.filter(p => p.category === category);
+            }
+            const k = (keyword || '').trim().toLowerCase();
+            if (k) {
+                list = list.filter(p => {
+                    const text = [
+                        p.title || '',
+                        p.category || '',
+                        p.summary || '',
+                        // 去掉 HTML 标签再搜正文
+                        (p.content || '').replace(/<[^>]+>/g, ' ')
+                    ].join(' ').toLowerCase();
+                    return text.includes(k);
+                });
+            }
+            // 置顶优先
+            list = [...list].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.id - a.id));
+            return list;
         }
 
-        function renderGrid(posts, category) {
+        function renderGrid(posts, category, keyword) {
             const container = document.getElementById('post-grid');
-            const filtered = filterPosts(posts, category);
+            const filtered = filterPosts(posts, category, keyword !== undefined ? keyword : currentSearch);
+            const hasSearch = !!(keyword !== undefined ? keyword : currentSearch).trim();
             if (filtered.length === 0) {
+                const msg = hasSearch
+                    ? `没有找到与「${(keyword !== undefined ? keyword : currentSearch).trim()}」相关的内容`
+                    : '该分类下暂无内容，去写一篇吧！';
                 container.innerHTML =
-                    `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">该分类下暂无内容，去写一篇吧！</p>`;
+                    `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">${msg}</p>`;
                 return;
             }
             let html = '';
@@ -168,15 +244,21 @@
                             </div>
                         </div>
                         <div class="foot">
-                            <span>${p.comments || 0} 条评论 · ${p.date || '刚刚'}</span>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                                <span class="views">
+                            <span>${p.pinned ? '<span class="pin-badge">📌 置顶</span>' : ''}${p.date || '刚刚'}</span>
+                            <div style="display:flex;align-items:center;gap:6px;">
+                                <span class="views" title="阅读">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                                         <circle cx="12" cy="12" r="3" />
                                     </svg>
                                     ${views}
                                 </span>
+                                <button class="like-btn ${getLikedSet().has(p.id) ? 'liked' : ''}" onclick="toggleLike(${p.id}, event)" title="点赞">
+                                    ${getLikedSet().has(p.id) ? '❤️' : '🤍'} ${p.likes || 0}
+                                </button>
+                                <button class="pin-btn ${p.pinned ? 'pinned' : ''}" onclick="togglePin(${p.id}, event)" title="${p.pinned ? '取消置顶' : '置顶'}">
+                                    ${p.pinned ? '📌' : '📍'}
+                                </button>
                                 <button class="delete-btn" onclick="deletePost(${p.id})" title="删除文章">🗑️</button>
                             </div>
                         </div>
@@ -255,15 +337,16 @@
         function setCategory(category) {
             currentCategory = category;
             const posts = getPosts();
-            renderGrid(posts, category);
+            renderGrid(posts, category, currentSearch);
             renderPillbar(posts, category);
             renderMenuCategories(posts, category);
             document.getElementById('total-articles').textContent = posts.length;
+            updateSearchHint();
         }
 
         function renderAll() {
             const posts = getPosts();
-            renderGrid(posts, currentCategory);
+            renderGrid(posts, currentCategory, currentSearch);
             renderRecent(posts);
             renderPillbar(posts, currentCategory);
             renderMenuCategories(posts, currentCategory);
@@ -492,6 +575,8 @@
                 date: new Date().toISOString().slice(0, 10),
                 comments: 0,
                 views: 0,
+                likes: 0,
+                pinned: false,
                 type: selectedType,
                 content: content
             });
@@ -508,31 +593,48 @@
         });
 
         // ============================================================
-        // 4. 相册管理
+        // 4. 相册 / 视频管理
         // ============================================================
         const IMAGE_KEY = 'ZIH_gallery';
+        // type: 'image' | 'video'
         const defaultImages = [
-            { id: 1, url: 'https://picsum.photos/seed/1/400/300', title: '晨光', desc: '清晨的第一缕光' },
-            { id: 2, url: 'https://picsum.photos/seed/2/400/300', title: '城市', desc: '暮色下的楼群' },
-            { id: 3, url: 'https://picsum.photos/seed/3/400/300', title: '小径', desc: '林间漫步' },
-            { id: 4, url: 'https://picsum.photos/seed/4/400/300', title: '海岸', desc: '浪花与礁石' },
-            { id: 5, url: 'https://picsum.photos/seed/5/400/300', title: '街角', desc: '旧书店的午后' },
-            { id: 6, url: 'https://picsum.photos/seed/6/400/300', title: '星空', desc: '深夜的宁静' },
-            { id: 7, url: 'https://picsum.photos/seed/7/400/300', title: '烟火', desc: '人间至味' },
-            { id: 8, url: 'https://picsum.photos/seed/8/400/300', title: '剪影', desc: '黄昏的轮廓' },
-            { id: 9, url: 'https://picsum.photos/seed/9/400/300', title: '绿意', desc: '自然呼吸' }
+            { id: 1, url: 'https://picsum.photos/seed/1/400/300', title: '晨光', desc: '清晨的第一缕光', type: 'image' },
+            { id: 2, url: 'https://picsum.photos/seed/2/400/300', title: '城市', desc: '暮色下的楼群', type: 'image' },
+            { id: 3, url: 'https://picsum.photos/seed/3/400/300', title: '小径', desc: '林间漫步', type: 'image' },
+            { id: 4, url: 'https://picsum.photos/seed/4/400/300', title: '海岸', desc: '浪花与礁石', type: 'image' },
+            { id: 5, url: 'https://picsum.photos/seed/5/400/300', title: '街角', desc: '旧书店的午后', type: 'image' },
+            { id: 6, url: 'https://picsum.photos/seed/6/400/300', title: '星空', desc: '深夜的宁静', type: 'image' },
+            { id: 7, url: 'https://picsum.photos/seed/7/400/300', title: '烟火', desc: '人间至味', type: 'image' },
+            { id: 8, url: 'https://picsum.photos/seed/8/400/300', title: '剪影', desc: '黄昏的轮廓', type: 'image' },
+            { id: 9, url: 'https://picsum.photos/seed/9/400/300', title: '绿意', desc: '自然呼吸', type: 'image' }
         ];
+
+        // 单个文件建议不超过 4MB（localStorage 总容量约 5~10MB）
+        const MAX_MEDIA_SIZE = 4 * 1024 * 1024;
 
         function getImages() {
             const stored = localStorage.getItem(IMAGE_KEY);
             if (stored) {
-                try { return JSON.parse(stored); } catch (_) {}
+                try {
+                    const list = JSON.parse(stored);
+                    list.forEach(item => {
+                        if (!item.type) item.type = 'image';
+                    });
+                    return list;
+                } catch (_) {}
             }
             localStorage.setItem(IMAGE_KEY, JSON.stringify(defaultImages));
             return defaultImages;
         }
 
-        function saveImages(images) { localStorage.setItem(IMAGE_KEY, JSON.stringify(images)); }
+        function saveImages(images) {
+            try {
+                localStorage.setItem(IMAGE_KEY, JSON.stringify(images));
+            } catch (err) {
+                alert('存储空间不足，请删除一些图片/视频后再试。\n（浏览器 localStorage 容量有限，大视频建议放到 assets/gallery/）');
+                throw err;
+            }
+        }
 
         function genImageId() { return Date.now() + Math.floor(Math.random() * 1000); }
 
@@ -540,21 +642,27 @@
             const container = document.getElementById('gallery-grid');
             const images = getImages();
             if (images.length === 0) {
-                container.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">暂无图片，点击「上传图片」添加你的照片吧！</p>`;
+                container.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">暂无内容，点击「上传图片」或「上传视频」添加吧！</p>`;
                 return;
             }
             let html = '';
             images.forEach(img => {
+                const isVideo = img.type === 'video';
+                const mediaHtml = isVideo
+                    ? `<video src="${img.url}" preload="metadata" playsinline muted></video>
+                       <span class="media-badge video">🎬 视频</span>`
+                    : `<img src="${img.url}" alt="${img.title || ''}" loading="lazy" />
+                       <span class="media-badge">📷 图片</span>`;
                 html += `
-                    <div class="gallery-item">
-                        <img src="${img.url}" alt="${img.title}" loading="lazy" />
+                    <div class="gallery-item" data-id="${img.id}" data-type="${isVideo ? 'video' : 'image'}" onclick="openMediaViewer(${img.id})">
+                        ${mediaHtml}
                         <div class="caption">
-                            <strong>${img.title}</strong>
+                            <strong>${img.title || (isVideo ? '未命名视频' : '未命名图片')}</strong>
                             ${img.desc ? img.desc : ''}
                         </div>
                         <div class="foot">
-                            <span></span>
-                            <button class="delete-btn" onclick="deleteImage(${img.id})" title="删除图片">🗑️</button>
+                            <span style="font-size:11px;color:var(--ink-faint);">${isVideo ? '点击播放' : '点击查看'}</span>
+                            <button class="delete-btn" onclick="event.stopPropagation();deleteImage(${img.id})" title="删除">🗑️</button>
                         </div>
                     </div>
                 `;
@@ -562,58 +670,206 @@
             container.innerHTML = html;
         }
 
+        // ----- 媒体预览：点击放大 + 全屏 -----
+        let currentMediaEl = null;
+
+        function openMediaViewer(id) {
+            const item = getImages().find(i => i.id === id);
+            if (!item) return;
+            const modal = document.getElementById('mediaModal');
+            const body = document.getElementById('mediaModalBody');
+            const title = document.getElementById('mediaModalTitle');
+            const fsBtn = document.getElementById('mediaFullscreenBtn');
+            title.textContent = item.title || (item.type === 'video' ? '视频预览' : '图片预览');
+            body.innerHTML = '';
+            currentMediaEl = null;
+
+            if (item.type === 'video') {
+                const video = document.createElement('video');
+                video.src = item.url;
+                video.controls = true;
+                video.autoplay = true;
+                video.playsInline = true;
+                video.setAttribute('playsinline', '');
+                // 点击视频本身：播放/暂停
+                video.addEventListener('click', function(e) {
+                    // 避免点控制条时也触发
+                    if (e.target === video) {
+                        if (video.paused) video.play();
+                        else video.pause();
+                    }
+                });
+                body.appendChild(video);
+                currentMediaEl = video;
+                if (fsBtn) fsBtn.style.display = 'inline-flex';
+            } else {
+                const img = document.createElement('img');
+                img.src = item.url;
+                img.alt = item.title || '';
+                // 点击图片也可尝试全屏
+                img.addEventListener('click', function() {
+                    requestMediaFullscreen(img);
+                });
+                body.appendChild(img);
+                currentMediaEl = img;
+                if (fsBtn) fsBtn.style.display = 'inline-flex';
+            }
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMediaViewer() {
+            const modal = document.getElementById('mediaModal');
+            const body = document.getElementById('mediaModalBody');
+            // 停止视频
+            const v = body && body.querySelector('video');
+            if (v) { v.pause(); v.removeAttribute('src'); v.load(); }
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            currentMediaEl = null;
+            if (body) body.innerHTML = '';
+        }
+
+        function requestMediaFullscreen(el) {
+            const target = el || currentMediaEl || document.getElementById('mediaModalBody');
+            if (!target) return;
+            const req = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+            if (req) {
+                req.call(target).catch(() => {
+                    alert('当前浏览器不支持全屏，或需要用户手势触发');
+                });
+            } else {
+                alert('当前浏览器不支持全屏 API');
+            }
+        }
+
+        // 绑定关闭 / 全屏按钮（DOM 可能稍后才有，用委托或延迟）
+        (function bindMediaModal() {
+            const modal = document.getElementById('mediaModal');
+            if (!modal) return;
+            document.getElementById('closeMediaBtn')?.addEventListener('click', closeMediaViewer);
+            document.getElementById('mediaFullscreenBtn')?.addEventListener('click', function() {
+                requestMediaFullscreen(currentMediaEl);
+            });
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) closeMediaViewer();
+            });
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.classList.contains('active') && !document.fullscreenElement) {
+                    closeMediaViewer();
+                }
+            });
+        })();
+
+
         function deleteImage(id) {
-            if (!confirm('确定要删除这张图片吗？')) return;
+            if (!confirm('确定要删除这项内容吗？')) return;
             let images = getImages();
             images = images.filter(img => img.id !== id);
             saveImages(images);
             renderGallery();
         }
 
+        function handleMediaUpload(files, mediaType) {
+            if (!files || !files.length) return;
+            const images = getImages();
+            const validFiles = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const okType = mediaType === 'video'
+                    ? file.type.startsWith('video/')
+                    : file.type.startsWith('image/');
+                if (!okType) continue;
+                if (file.size > MAX_MEDIA_SIZE) {
+                    alert(`「${file.name}」超过 4MB，跳过。\n大文件请放到 assets/gallery/ 后引用，避免撑爆浏览器存储。`);
+                    continue;
+                }
+                validFiles.push(file);
+            }
+            if (!validFiles.length) return;
+
+            let loaded = 0;
+            const total = validFiles.length;
+            validFiles.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    const dataUrl = ev.target.result;
+                    const name = file.name.replace(/\.[^.]+$/, '');
+                    images.push({
+                        id: genImageId(),
+                        url: dataUrl,
+                        title: name,
+                        desc: '',
+                        type: mediaType
+                    });
+                    loaded++;
+                    if (loaded === total) {
+                        try {
+                            saveImages(images);
+                            renderGallery();
+                        } catch (_) {}
+                    }
+                };
+                reader.onerror = function() {
+                    loaded++;
+                    alert(`读取「${file.name}」失败`);
+                    if (loaded === total) {
+                        try { saveImages(images); renderGallery(); } catch (_) {}
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
         const fileInput = document.getElementById('imageInput');
+        const videoInput = document.getElementById('videoInput');
+
         document.getElementById('uploadImageBtn').addEventListener('click', function(e) {
             e.stopPropagation();
             fileInput.click();
         });
         fileInput.addEventListener('change', function(e) {
-            const files = e.target.files;
-            if (!files.length) return;
-            const images = getImages();
-            let loaded = 0;
-            const total = files.length;
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (!file.type.startsWith('image/')) continue;
-                const reader = new FileReader();
-                reader.onload = function(ev) {
-                    const dataUrl = ev.target.result;
-                    const name = file.name.replace(/\.[^.]+$/, '');
-                    images.push({ id: genImageId(), url: dataUrl, title: name, desc: '' });
-                    loaded++;
-                    if (loaded === total) {
-                        saveImages(images);
-                        renderGallery();
-                        fileInput.value = '';
-                    }
-                };
-                reader.readAsDataURL(file);
-            }
-            if (total === 0) fileInput.value = '';
+            handleMediaUpload(e.target.files, 'image');
+            fileInput.value = '';
         });
 
+        if (document.getElementById('uploadVideoBtn')) {
+            document.getElementById('uploadVideoBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                videoInput.click();
+            });
+            videoInput.addEventListener('change', function(e) {
+                handleMediaUpload(e.target.files, 'video');
+                videoInput.value = '';
+            });
+        }
+
         // ============================================================
-        // 5. 评论系统
+        // 5. 评论系统（支持回复）
         // ============================================================
         const COMMENT_KEY = 'ZIH_comments';
         const defaultComments = [
-            { id: 1, name: '路人甲', content: '这个博客真不错！加油！', time: '2026-08-31 10:20' },
-            { id: 2, name: '小赵', content: '学习了，文章很有帮助。', time: '2026-08-31 14:35' },
+            { id: 1, name: '路人甲', content: '这个博客真不错！加油！', time: '2026-08-31 10:20', parentId: null, replyTo: null },
+            { id: 2, name: '小赵', content: '学习了，文章很有帮助。', time: '2026-08-31 14:35', parentId: null, replyTo: null },
         ];
+
+        let replyParentId = null;
+        let replyParentName = null;
 
         function getComments() {
             const stored = localStorage.getItem(COMMENT_KEY);
             if (stored) {
-                try { return JSON.parse(stored); } catch (_) {}
+                try {
+                    const list = JSON.parse(stored);
+                    list.forEach(c => {
+                        if (c.parentId === undefined) c.parentId = null;
+                        if (c.replyTo === undefined) c.replyTo = null;
+                    });
+                    return list;
+                } catch (_) {}
             }
             localStorage.setItem(COMMENT_KEY, JSON.stringify(defaultComments));
             return defaultComments;
@@ -623,34 +879,47 @@
 
         function genCommentId() { return Date.now() + Math.floor(Math.random() * 1000); }
 
+        function renderOneComment(c, isReply) {
+            const initial = (c.name || '?').charAt(0).toUpperCase();
+            const replyTag = c.replyTo ? `<div class="reply-to-tag">回复 @${c.replyTo}</div>` : '';
+            const replyBtn = isReply ? '' : `<button class="reply-btn" onclick="startReply(${c.id}, '${(c.name || '').replace(/'/g, "\\'")}')">回复</button>`;
+            return `
+                <div class="comment-card" data-id="${c.id}">
+                    <div class="body">
+                        <div class="comment-author">
+                            <span class="initial">${initial}</span>
+                            <span class="name">${c.name}</span>
+                            <span class="time">${c.time || '刚刚'}</span>
+                        </div>
+                        ${replyTag}
+                        <div class="comment-content">${c.content}</div>
+                        <div class="foot">
+                            <span>${replyBtn}</span>
+                            <button class="delete-btn" onclick="deleteComment(${c.id})" title="删除评论">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderComments() {
             const container = document.getElementById('comment-grid');
             const comments = getComments();
-            if (comments.length === 0) {
+            const roots = comments.filter(c => !c.parentId).sort((a, b) => b.id - a.id);
+            if (roots.length === 0) {
                 container.innerHTML =
                     `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">还没有评论，来说两句吧～</p>`;
                 return;
             }
-            const sorted = [...comments].sort((a, b) => b.id - a.id);
             let html = '';
-            sorted.forEach(c => {
-                const initial = c.name.charAt(0).toUpperCase() || '?';
-                html += `
-                    <div class="comment-card">
-                        <div class="body">
-                            <div class="comment-author">
-                                <span class="initial">${initial}</span>
-                                <span class="name">${c.name}</span>
-                                <span class="time">${c.time || '刚刚'}</span>
-                            </div>
-                            <div class="comment-content">${c.content}</div>
-                            <div class="foot">
-                                <span></span>
-                                <button class="delete-btn" onclick="deleteComment(${c.id})" title="删除评论">🗑️</button>
-                            </div>
-                        </div>
-                    </div>
-                `;
+            roots.forEach(c => {
+                const replies = comments.filter(r => r.parentId === c.id).sort((a, b) => a.id - b.id);
+                let repliesHtml = '';
+                if (replies.length) {
+                    repliesHtml = `<div class="comment-replies">${replies.map(r => renderOneComment(r, true)).join('')}</div>`;
+                }
+                // wrap root + replies
+                html += `<div class="comment-thread">${renderOneComment(c, false)}${repliesHtml}</div>`;
             });
             container.innerHTML = html;
         }
@@ -658,22 +927,61 @@
         function deleteComment(id) {
             if (!confirm('确定要删除这条评论吗？')) return;
             let comments = getComments();
-            comments = comments.filter(c => c.id !== id);
+            // 同时删除回复
+            comments = comments.filter(c => c.id !== id && c.parentId !== id);
             saveComments(comments);
+            if (replyParentId === id) cancelReply();
             renderComments();
         }
+
+        function startReply(parentId, name) {
+            replyParentId = parentId;
+            replyParentName = name;
+            const hint = document.getElementById('replyHint');
+            const nameEl = document.getElementById('replyToName');
+            if (hint) hint.style.display = 'flex';
+            if (nameEl) nameEl.textContent = '@' + name;
+            const ta = document.getElementById('commentContent');
+            if (ta) {
+                ta.placeholder = '回复 ' + name + '…';
+                ta.focus();
+            }
+            const btn = document.getElementById('submitCommentBtn');
+            if (btn) btn.textContent = '发表回复';
+            document.getElementById('personal')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function cancelReply() {
+            replyParentId = null;
+            replyParentName = null;
+            const hint = document.getElementById('replyHint');
+            if (hint) hint.style.display = 'none';
+            const ta = document.getElementById('commentContent');
+            if (ta) ta.placeholder = '想说什么呢？';
+            const btn = document.getElementById('submitCommentBtn');
+            if (btn) btn.textContent = '发表评论';
+        }
+
+        document.getElementById('cancelReplyBtn')?.addEventListener('click', cancelReply);
 
         document.getElementById('submitCommentBtn').addEventListener('click', function() {
             const name = document.getElementById('commentName').value.trim();
             const content = document.getElementById('commentContent').value.trim();
             if (!name || !content) { alert('请填写昵称和评论内容'); return; }
             const comments = getComments();
-            comments.push({ id: genCommentId(), name, content, time: new Date().toLocaleString('zh-CN', { hour12: false }) });
+            comments.push({
+                id: genCommentId(),
+                name,
+                content,
+                time: new Date().toLocaleString('zh-CN', { hour12: false }),
+                parentId: replyParentId,
+                replyTo: replyParentName
+            });
             saveComments(comments);
             renderComments();
-            document.getElementById('commentName').value = '';
             document.getElementById('commentContent').value = '';
-            const firstCard = document.querySelector('#comment-grid .comment-card');
+            cancelReply();
+            const firstCard = document.querySelector('#comment-grid .comment-thread, #comment-grid .comment-card');
             if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
 
@@ -681,9 +989,10 @@
         // 6. 联系方式管理
         // ============================================================
         const CONTACT_KEY = 'ZIH_contacts';
+        // 默认联系方式照片：放在 assets/contacts/ 下
         const defaultContacts = [
-            { id: 1, label: '微信', iconType: 'wechat', imageUrl: '' },
-            { id: 2, label: '抖音', iconType: 'douyin', imageUrl: '' }
+            { id: 1, label: '微信', iconType: 'wechat', imageUrl: 'assets/contacts/wechat.png' },
+            { id: 2, label: '抖音', iconType: 'douyin', imageUrl: 'assets/contacts/douyin.png' }
         ];
 
         function getContacts() {
@@ -841,13 +1150,16 @@
         // 7. 音乐播放器
         // ============================================================
         const MUSIC_KEY = 'ZIH_music';
+        // 默认音乐：放在 assets/music/bgm.mp3
+        const DEFAULT_MUSIC = { src: 'assets/music/bgm.mp3', name: '默认背景音乐', volume: 0.8, playing: false };
 
         function getMusicData() {
             const stored = localStorage.getItem(MUSIC_KEY);
             if (stored) {
                 try { return JSON.parse(stored); } catch (_) {}
             }
-            return null;
+            // 无 localStorage 数据时，尝试使用 assets 默认音乐
+            return DEFAULT_MUSIC;
         }
 
         function saveMusicData(data) { localStorage.setItem(MUSIC_KEY, JSON.stringify(data)); }
@@ -870,17 +1182,30 @@
         function loadMusic() {
             const data = getMusicData();
             if (data && data.src) {
+                // 监听加载失败（例如 assets 下还没放文件）
+                audioPlayer.onerror = function() {
+                    isLoaded = false;
+                    musicControls.classList.remove('show');
+                    musicUploadArea.style.display = 'block';
+                    musicStatus.textContent = '默认音乐未找到，请上传';
+                    playBtn.textContent = '▶ 播放';
+                    playBtn.classList.remove('paused');
+                };
                 audioPlayer.src = data.src;
                 audioPlayer.load();
                 isLoaded = true;
                 musicControls.classList.add('show');
                 musicUploadArea.style.display = 'none';
                 musicStatus.textContent = data.name || '已加载';
-                if (data.volume !== undefined) { audioPlayer.volume = data.volume;
-                    volumeSlider.value = data.volume; }
-                if (data.playing) { playBtn.textContent = '▶ 播放';
+                if (data.volume !== undefined) {
+                    audioPlayer.volume = data.volume;
+                    volumeSlider.value = data.volume;
+                }
+                if (data.playing) {
+                    playBtn.textContent = '▶ 播放';
                     playBtn.classList.remove('paused');
-                    musicStatus.textContent = data.name || '已暂停'; }
+                    musicStatus.textContent = data.name || '已暂停';
+                }
                 updateTimeDisplay();
             } else {
                 musicControls.classList.remove('show');
@@ -1243,10 +1568,95 @@
             link.addEventListener('click', function(e) { e.preventDefault();
                 const tab = this.dataset.tab; if (tab) showTab(tab, false); });
         });
-        iconSearch.addEventListener('click', function(e) { e.stopPropagation();
-            showTab('blog', true); });
+        iconSearch.addEventListener('click', function(e) {
+            e.stopPropagation();
+            showTab('blog', true);
+            toggleSearchBar(true);
+        });
         iconGrid.addEventListener('click', function(e) { e.stopPropagation();
             showTab('gallery', true); });
+
+        // ============================================================
+        // 12.5 搜索
+        // ============================================================
+        const searchBar = document.getElementById('searchBar');
+        const searchInput = document.getElementById('searchInput');
+        const searchClear = document.getElementById('searchClear');
+        const searchHint = document.getElementById('searchHint');
+
+        function updateSearchHint() {
+            if (!searchHint) return;
+            const k = currentSearch.trim();
+            if (!k) {
+                searchHint.textContent = '';
+                return;
+            }
+            const posts = getPosts();
+            const count = filterPosts(posts, currentCategory, k).length;
+            searchHint.textContent = count > 0
+                ? `找到 ${count} 篇相关内容`
+                : '未找到匹配内容，试试其他关键词';
+        }
+
+        function applySearch(keyword) {
+            currentSearch = keyword || '';
+            if (searchClear) {
+                searchClear.style.display = currentSearch.trim() ? 'inline-flex' : 'none';
+            }
+            const posts = getPosts();
+            renderGrid(posts, currentCategory, currentSearch);
+            updateSearchHint();
+        }
+
+        function toggleSearchBar(forceOpen) {
+            if (!searchBar) return;
+            const open = forceOpen === true ? true
+                : forceOpen === false ? false
+                : !searchBar.classList.contains('open');
+            if (open) {
+                searchBar.classList.add('open');
+                setTimeout(() => searchInput && searchInput.focus(), 50);
+            } else {
+                searchBar.classList.remove('open');
+            }
+        }
+
+        function clearSearch() {
+            currentSearch = '';
+            if (searchInput) searchInput.value = '';
+            if (searchClear) searchClear.style.display = 'none';
+            applySearch('');
+            if (searchInput) searchInput.focus();
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                applySearch(this.value);
+            });
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    if (this.value) {
+                        clearSearch();
+                    } else {
+                        toggleSearchBar(false);
+                        this.blur();
+                    }
+                }
+            });
+        }
+        if (searchClear) {
+            searchClear.addEventListener('click', function(e) {
+                e.stopPropagation();
+                clearSearch();
+            });
+        }
+
+        // Esc 关闭搜索栏（无输入时）
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && searchBar && searchBar.classList.contains('open') && !currentSearch.trim()) {
+                toggleSearchBar(false);
+            }
+        });
 
         // ============================================================
         // 13. 主题切换
@@ -2036,24 +2446,53 @@
                 btn.classList.toggle('active', btn.dataset.theme === themeKey);
             });
 
+            // 仅应用配色；存储与按钮高亮由 setTheme 负责
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                const saved = localStorage.getItem('ZIH_theme') || 'light';
+                btn.classList.toggle('active', btn.dataset.theme === saved);
+            });
+        }
+
+        function resolveThemeKey(key) {
+            if (key === 'system') {
+                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            return key || 'light';
+        }
+
+        function setTheme(key) {
+            localStorage.setItem('ZIH_theme', key);
+            applyTheme(key === 'system' ? resolveThemeKey('system') : key);
+            // 重新标记 active 为用户选择的 key（含 system）
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === key);
+            });
             const nameMap = {
-                light: '☀️ 白天',
-                dark: '🌙 黑夜',
-                warm: '🌅 暖阳',
-                forest: '🌲 森林',
-                ocean: '🌊 海洋',
-                sakura: '🌸 樱花',
-                violet: '💜 紫罗兰'
+                light: '☀️ 白天', dark: '🌙 黑夜', warm: '🌅 暖阳', forest: '🌲 森林',
+                ocean: '🌊 海洋', sakura: '🌸 樱花', violet: '💜 紫罗兰', system: '💻 系统'
             };
-            document.getElementById('themeCurrent').innerHTML =
-                `当前主题：<strong>${nameMap[themeKey] || '☀️ 白天'}</strong>`;
-            localStorage.setItem('ZIH_theme', themeKey);
+            const el = document.getElementById('themeCurrent');
+            if (el) el.innerHTML = `当前主题：<strong>${nameMap[key] || key}</strong>`;
+            if (key === 'system') {
+                // 监听系统变化
+                if (!window._zihThemeMedia) {
+                    window._zihThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+                    window._zihThemeMedia.addEventListener('change', () => {
+                        if (localStorage.getItem('ZIH_theme') === 'system') {
+                            applyTheme(resolveThemeKey('system'));
+                            document.querySelectorAll('.theme-btn').forEach(btn => {
+                                btn.classList.toggle('active', btn.dataset.theme === 'system');
+                            });
+                        }
+                    });
+                }
+            }
         }
 
         document.querySelectorAll('.theme-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const theme = this.dataset.theme;
-                if (theme) applyTheme(theme);
+                if (theme) setTheme(theme);
             });
         });
 
@@ -2073,7 +2512,7 @@
         if (needSave) savePosts(initPosts);
 
         const savedTheme = localStorage.getItem('ZIH_theme') || 'light';
-        applyTheme(savedTheme);
+        setTheme(savedTheme);
 
         renderProfile();
         currentCategory = '全部';
@@ -2085,7 +2524,71 @@
         switchMode('ai');
         showTab('blog', false);
 
+        // ============================================================
+        // 今日一言
+        // ============================================================
+        const QUOTES = [
+            '不要太劳累了，早睡更健康。',
+            '代码写得好，不如注释写得清楚。',
+            '今天也要元气满满地调试 bug。',
+            '学英语就像跑步，贵在坚持。',
+            '少一点完美主义，多一点完成主义。',
+            '世界很大，先把眼前这一页写完。',
+            '休息是为了走更长的路。',
+            '保持好奇，比保持忙碌更重要。',
+            '一行代码，一份心意。',
+            '慢慢来，比较快。',
+            '把简单的事情重复做，就是不简单。',
+            '允许自己不完美，然后继续前进。'
+        ];
+
+        function pickQuote(forceRandom) {
+            if (forceRandom) return QUOTES[Math.floor(Math.random() * QUOTES.length)];
+            const day = new Date().toDateString();
+            let seed = 0;
+            for (let i = 0; i < day.length; i++) seed += day.charCodeAt(i);
+            return QUOTES[seed % QUOTES.length];
+        }
+
+        function renderQuote(forceRandom) {
+            const el = document.getElementById('dailyQuote');
+            if (el) el.textContent = pickQuote(!!forceRandom);
+        }
+        renderQuote(false);
+        document.getElementById('quoteRefresh')?.addEventListener('click', () => renderQuote(true));
+
+        // ============================================================
+        // 移动端底部导航
+        // ============================================================
+        document.querySelectorAll('.bottom-nav .bnav-item').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tab = this.dataset.tab;
+                if (tab) {
+                    showTab(tab, false);
+                    document.querySelectorAll('.bottom-nav .bnav-item').forEach(b => {
+                        b.classList.toggle('active', b.dataset.tab === tab);
+                    });
+                }
+            });
+        });
+        // 同步底部导航高亮
+        const _origShowTab = showTab;
+        // 在已有 showTab 调用后同步 — 简单再绑一层监听不够，直接补丁：
+        const navSync = new MutationObserver(() => {
+            const active = document.querySelector('.toplinks a.active');
+            const tab = active?.dataset?.tab || (document.getElementById('blog-content')?.classList.contains('active') ? 'blog' : null);
+            if (tab) {
+                document.querySelectorAll('.bottom-nav .bnav-item').forEach(b => {
+                    b.classList.toggle('active', b.dataset.tab === tab);
+                });
+            }
+        });
+        document.querySelectorAll('#blog-content, #gallery, #personal, #about').forEach(el => {
+            if (el) navSync.observe(el, { attributes: true, attributeFilter: ['class'] });
+        });
+
         console.log('🚀 博客小栈已加载！');
         console.log('📝 支持写文章和新闻，富文本编辑器可插入图片、链接、列表等。');
         console.log('📊 点击文章卡片可查看详情并增加阅读量。');
+        console.log('💬 支持评论回复 · ❤️ 点赞 · 📌 置顶 · 💻 跟随系统主题 · 📱 底部导航');
     

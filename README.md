@@ -13,25 +13,51 @@
 
 ```
 zih-blog/
-├── index.html          # 主页面
-├── css/
-│   └── style.css       # 全部样式（含主题变量）
-├── js/
-│   └── app.js          # 全部逻辑（localStorage 数据）
-├── assets/             # 可选静态资源（头像/音乐示例）
-│   ├── avatar.png      # 可替换为你的头像
-│   └── music.mp3       # 可替换为你的背景音乐
+├── index.html
+├── css/style.css
+├── js/app.js
+├── assets/
+│   ├── avatar/
+│   │   └── avatar.png      ← 默认头像（放这里）
+│   ├── contacts/
+│   │   ├── wechat.png      ← 微信二维码/照片
+│   │   └── douyin.png      ← 抖音二维码/照片
+│   ├── music/
+│   │   └── bgm.mp3         ← 默认背景音乐
+│   └── gallery/            ← 相册示例图（可选）
 └── README.md
 ```
 
-## 头像与音乐说明（已分离）
+## 头像 / 联系方式照片 / 音乐（已放到 assets）
 
-- **头像**：侧边栏头像支持点击上传（保存到浏览器 localStorage）。  
-  如需默认头像，可把图片放到 `assets/avatar.png`，并在 `js/app.js` 的 `getProfile()` 默认值中设置 `avatar: 'assets/avatar.png'`。
-- **音乐**：侧边栏音乐框支持上传本地音频（同样存 localStorage）。  
-  如需默认音乐，可把音频放到 `assets/music.mp3`，并在初始化时加载。
+把文件按上面路径放入即可，刷新页面自动加载：
 
-数据全部存储在浏览器 localStorage，导出 JSON 可备份迁移。
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| 头像 | `assets/avatar/avatar.png` | 侧边栏默认头像 |
+| 微信 | `assets/contacts/wechat.png` | 联系方式卡片图片 |
+| 抖音 | `assets/contacts/douyin.png` | 联系方式卡片图片 |
+| 音乐 | `assets/music/bgm.mp3` | 侧边栏默认背景音乐 |
+
+- 页面上「点击上传」仍会保存到浏览器 localStorage（仅本机有效）。
+- GitHub Pages 是静态站，无法把浏览器上传的文件真正写进仓库。
+- **正式发布请把图片/音乐预先放到 assets 再提交**，这样所有访客都能看到。
+
+其他数据（文章、评论等）仍在 localStorage，支持导出 JSON 备份。
+
+## 预览（图片 + 视频）
+
+- 支持上传图片与视频（预览页「上传图片 / 上传视频」）
+- 视频可在线播放（`<video controls>`）
+- 单文件建议 ≤ 4MB（受浏览器 localStorage 限制）
+- 大视频请放到 `assets/gallery/` 再引用
+
+## 搜索功能
+
+- 点击顶部 **搜索图标** 打开搜索栏
+- 支持按 **标题 / 分类 / 摘要 / 正文** 实时过滤
+- 与当前分类筛选叠加（例如：先选「英语体系」，再搜关键词）
+- `Esc` 清空或关闭搜索栏，点 ✕ 清除关键词
 
 ## 响应式检查结果
 

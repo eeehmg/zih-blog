@@ -118,6 +118,12 @@
                     <div id="recent-posts"></div>
                 </div>
 
+                <div class="card quote-card">
+                    <h4>💬 今日一言</h4>
+                    <p class="daily-quote" id="dailyQuote">加载中…</p>
+                    <button type="button" class="quote-refresh" id="quoteRefresh" title="换一句">换一句</button>
+                </div>
+
                 <div class="card music-card">
                     <h4>🎵 音乐框</h4>
                     <div class="music-upload-area" id="musicUploadArea">
@@ -204,6 +210,10 @@
                             <span class="theme-dot" style="background:#f4eef8;border-color:#e8d8ec;"></span>
                             <span class="theme-name">💜 紫罗兰</span>
                         </button>
+                        <button class="theme-btn" data-theme="system" title="跟随系统">
+                            <span class="theme-dot" style="background:linear-gradient(135deg,#f4f5f7 50%,#1a1a1e 50%);border-color:#9a9da5;"></span>
+                            <span class="theme-name">💻 系统</span>
+                        </button>
                     </div>
                     <div class="theme-current" id="themeCurrent">当前主题：<strong>☀️ 白天</strong></div>
                 </div>
@@ -214,6 +224,17 @@
         <!-- MAIN CONTENT -->
         <main>
             <div id="blog-content" class="active">
+                <div class="search-bar" id="searchBar">
+                    <div class="search-input-wrap">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input type="text" id="searchInput" placeholder="搜索标题、分类、摘要、正文..." autocomplete="off" />
+                        <button type="button" class="search-clear" id="searchClear" title="清除" style="display:none;">✕</button>
+                    </div>
+                    <span class="search-hint" id="searchHint"></span>
+                </div>
                 <div class="toolbar">
                     <button class="btn-publish" id="openPublishBtn">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -245,13 +266,19 @@
                 <div class="gallery-header">
                     <div class="header-actions">
                         <div>
-                            <h2>📷 摄影集</h2>
-                            <p>上传本地图片或管理现有照片</p>
+                            <h2>📷 预览集</h2>
+                            <p>上传本地图片或视频，管理你的媒体</p>
                         </div>
-                        <button class="btn-upload" id="uploadImageBtn">
-                            📤 上传图片
-                            <input type="file" id="imageInput" accept="image/*" multiple />
-                        </button>
+                        <div class="gallery-upload-btns">
+                            <button class="btn-upload" id="uploadImageBtn">
+                                📤 上传图片
+                                <input type="file" id="imageInput" accept="image/*" multiple />
+                            </button>
+                            <button class="btn-upload btn-upload-video" id="uploadVideoBtn">
+                                🎬 上传视频
+                                <input type="file" id="videoInput" accept="video/*" multiple />
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="gallery-grid" id="gallery-grid"></div>
@@ -276,6 +303,10 @@
                 </div>
                 <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;">💬 访客留言</h3>
                 <div class="comment-form">
+                    <div id="replyHint" class="reply-hint" style="display:none;">
+                        回复 <strong id="replyToName"></strong>
+                        <button type="button" id="cancelReplyBtn" class="cancel-reply">取消</button>
+                    </div>
                     <div class="row">
                         <input type="text" id="commentName" placeholder="你的昵称 *" required />
                     </div>
@@ -412,6 +443,23 @@
         </div>
     </div>
 
+    <!-- ===== 媒体预览（图片/视频）模态框 ===== -->
+    <div class="modal-overlay" id="mediaModal">
+        <div class="modal media-modal">
+            <div class="media-modal-header">
+                <h3 id="mediaModalTitle">预览</h3>
+                <div class="media-modal-actions">
+                    <button type="button" class="media-fs-btn" id="mediaFullscreenBtn" title="全屏">⛶ 全屏</button>
+                    <button type="button" class="close-btn" id="closeMediaBtn" style="font-size:22px;background:none;border:none;color:var(--ink-faint);cursor:pointer;">✕</button>
+                </div>
+            </div>
+            <div class="media-modal-body" id="mediaModalBody">
+                <!-- 动态插入 img 或 video -->
+            </div>
+            <p class="media-modal-tip">点击视频可播放/暂停 · 点「全屏」进入全屏播放</p>
+        </div>
+    </div>
+
     <!-- ===== FOOTER ===== -->
     <footer class="site-footer">
         <p>
@@ -452,6 +500,26 @@
     <!-- ============================================================ -->
     <!-- ===== JavaScript ===== -->
     
+    <!-- 移动端底部导航 -->
+    <nav class="bottom-nav" id="bottomNav">
+        <button type="button" class="bnav-item active" data-tab="blog" aria-label="文章">
+            <span class="bnav-icon">📝</span>
+            <span class="bnav-label">文章</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="gallery" aria-label="预览">
+            <span class="bnav-icon">📷</span>
+            <span class="bnav-label">预览</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="personal" aria-label="留言">
+            <span class="bnav-icon">💬</span>
+            <span class="bnav-label">留言</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="about" aria-label="关于">
+            <span class="bnav-icon">📇</span>
+            <span class="bnav-label">关于</span>
+        </button>
+    </nav>
+
     <script src="js/app.js"></script>
 
 
