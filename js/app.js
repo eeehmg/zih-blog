@@ -1156,13 +1156,28 @@
         function getMusicData() {
             const stored = localStorage.getItem(MUSIC_KEY);
             if (stored) {
-                try { return JSON.parse(stored); } catch (_) {}
+                try {
+                    const data = JSON.parse(stored);
+                    // 旧数据没有 loop 字段时，默认开启循环
+                    if (data && data.loop === undefined) data.loop = true;
+                    return data;
+                } catch (_) {}
             }
             // 无 localStorage 数据时，尝试使用 assets 默认音乐
-            return DEFAULT_MUSIC;
+            return { ...DEFAULT_MUSIC };
         }
 
         function saveMusicData(data) { localStorage.setItem(MUSIC_KEY, JSON.stringify(data)); }
+
+        function applyLoopState(enabled) {
+            if (!audioPlayer) return;
+            const on = enabled !== false;
+            audioPlayer.loop = on;
+            if (on) audioPlayer.setAttribute('loop', '');
+            else audioPlayer.removeAttribute('loop');
+            const loopBtn = document.getElementById('loopBtn');
+            if (loopBtn) loopBtn.classList.toggle('active', on);
+        }
 
         const audioPlayer = document.getElementById('audioPlayer');
         const playBtn = document.getElementById('playBtn');
@@ -1192,7 +1207,7 @@
                     playBtn.classList.remove('paused');
                 };
                 audioPlayer.src = data.src;
-                audioPlayer.loop = data.loop !== false; // 默认循环
+                applyLoopState(data.loop !== false);
                 audioPlayer.load();
                 isLoaded = true;
                 musicControls.classList.add('show');
@@ -1202,8 +1217,6 @@
                     audioPlayer.volume = data.volume;
                     volumeSlider.value = data.volume;
                 }
-                const loopBtn = document.getElementById('loopBtn');
-                if (loopBtn) loopBtn.classList.toggle('active', audioPlayer.loop);
                 if (data.playing) {
                     playBtn.textContent = '▶ 播放';
                     playBtn.classList.remove('paused');
@@ -1240,13 +1253,16 @@
         function togglePlay() {
             if (!isLoaded) { alert('请先上传音乐文件'); return; }
             if (audioPlayer.paused) {
+                // 每次播放前确保循环状态与设置一致
+                const data0 = getMusicData();
+                applyLoopState(!data0 || data0.loop !== false);
                 audioPlayer.play().then(() => {
                     isPlaying = true;
                     playBtn.textContent = '⏸ 暂停';
                     playBtn.classList.add('paused');
-                    musicStatus.textContent = '播放中';
+                    musicStatus.textContent = audioPlayer.loop ? '循环播放中' : '播放中';
                     const data = getMusicData();
-                    if (data) { data.playing = true;
+                    if (data) { data.playing = true; data.loop = audioPlayer.loop;
                         saveMusicData(data); }
                 }).catch(err => { alert('请手动点击页面后再次尝试播放'); });
             } else {
@@ -1284,14 +1300,16 @@
             musicUploadArea.style.display = 'none';
         });
         audioPlayer.addEventListener('ended', function() {
-            // loop=true 时浏览器会自动重播，一般不会进 ended；兜底再播一次
-            if (audioPlayer.loop) {
+            const shouldLoop = audioPlayer.loop || (getMusicData() && getMusicData().loop !== false);
+            if (shouldLoop) {
+                applyLoopState(true);
                 isPlaying = true;
                 playBtn.textContent = '⏸ 暂停';
                 playBtn.classList.add('paused');
                 musicStatus.textContent = '循环播放中';
-                audioPlayer.currentTime = 0;
-                audioPlayer.play().catch(() => {});
+                try { audioPlayer.currentTime = 0; } catch (_) {}
+                const p = audioPlayer.play();
+                if (p && p.catch) p.catch(() => {});
                 return;
             }
             isPlaying = false;
@@ -1299,9 +1317,14 @@
             playBtn.classList.remove('paused');
             musicStatus.textContent = '已结束';
             const data = getMusicData();
-            if (data) { data.playing = false;
-                saveMusicData(data); }
+            if (data) { data.playing = false; saveMusicData(data); }
             updateTimeDisplay();
+        });
+
+        // 部分浏览器对 data URL 音频 loop 支持不稳，临近结束时手动重绕
+        audioPlayer.addEventListener('timeupdate', function() {
+            if (!audioPlayer.loop || !audioPlayer.duration || audioPlayer.paused) return;
+            // 距结束不足 0.15 秒时，若即将结束则由 ended 处理；这里不做强行跳转避免卡顿
         });
 
         musicUploadArea.addEventListener('click', function(e) { e.stopPropagation();
@@ -1318,14 +1341,13 @@
                     playing: false, loop: true };
                 saveMusicData(musicData);
                 loadMusic();
+                applyLoopState(true);
                 isLoaded = true;
                 musicControls.classList.add('show');
                 musicUploadArea.style.display = 'none';
                 musicStatus.textContent = file.name;
                 playBtn.textContent = '▶ 播放';
                 playBtn.classList.remove('paused');
-                audioPlayer.src = dataUrl;
-                audioPlayer.load();
                 musicInput.value = '';
             };
             reader.readAsDataURL(file);
@@ -1350,22 +1372,23 @@
         playBtn.addEventListener('click', togglePlay);
 
         // 循环开关（默认开启）
-        const loopBtn = document.getElementById('loopBtn');
-        if (loopBtn) {
-            audioPlayer.loop = true;
-            loopBtn.classList.add('active');
-            loopBtn.addEventListener('click', function() {
-                audioPlayer.loop = !audioPlayer.loop;
-                this.classList.toggle('active', audioPlayer.loop);
+        const loopBtnEl = document.getElementById('loopBtn');
+        if (loopBtnEl) {
+            applyLoopState(true);
+            loopBtnEl.addEventListener('click', function() {
+                const next = !audioPlayer.loop;
+                applyLoopState(next);
                 const data = getMusicData();
                 if (data) {
-                    data.loop = audioPlayer.loop;
+                    data.loop = next;
                     saveMusicData(data);
+                } else {
+                    saveMusicData({ src: audioPlayer.src, name: '音乐', volume: audioPlayer.volume, playing: isPlaying, loop: next });
                 }
-                musicStatus.textContent = audioPlayer.loop ? '已开启循环' : '已关闭循环';
+                musicStatus.textContent = next ? '已开启循环' : '已关闭循环';
                 setTimeout(() => {
                     if (isPlaying) musicStatus.textContent = '播放中';
-                    else if (isLoaded) musicStatus.textContent = data?.name || '已加载';
+                    else if (isLoaded) musicStatus.textContent = (getMusicData() && getMusicData().name) || '已加载';
                 }, 1200);
             });
         }
