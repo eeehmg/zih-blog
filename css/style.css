@@ -2429,6 +2429,26 @@
             padding: 28px 30px 24px;
             box-shadow: 0 30px 60px var(--modal-shadow);
             animation: modalIn .25s ease;
+            /* 所有弹窗卡片统一：内容超出时出现可拖动的上下滑动条，不会再顶出屏幕 */
+            max-height: 88vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--teal) var(--bg);
+        }
+        .modal::-webkit-scrollbar {
+            width: 8px;
+        }
+        .modal::-webkit-scrollbar-track {
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        .modal::-webkit-scrollbar-thumb {
+            background: var(--teal);
+            border-radius: 8px;
+            border: 2px solid var(--bg);
+        }
+        .modal::-webkit-scrollbar-thumb:hover {
+            background: var(--teal-hover);
         }
         @keyframes modalIn {
             0% { opacity: 0; transform: scale(.95) translateY(20px); }
@@ -2912,6 +2932,113 @@
             display: block;
         }
 
+        /* ===== 云盘嵌入 ===== */
+        .gallery-header .btn-upload-cloud {
+            background: #4f8cff;
+            position: relative;
+            z-index: 5;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+        .gallery-header .btn-upload-cloud:hover {
+            background: #3c74e0;
+        }
+        .gallery-item .cloud-thumb {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(145deg, #1e2a3e, #0f1620);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            gap: 8px;
+            position: relative;
+        }
+        .gallery-item .cloud-thumb .cloud-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #4f8cff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 16px rgba(79,140,255,0.4);
+        }
+        .gallery-item .cloud-thumb .cloud-name {
+            font-size: 12px;
+            opacity: 0.85;
+        }
+        .gallery-item .media-badge.cloud {
+            background: rgba(79, 140, 255, 0.9);
+        }
+        .media-modal-body .cloud-card {
+            width: 100%;
+            min-height: 280px;
+            border-radius: 12px;
+            background: linear-gradient(145deg, #1e2a3e, #0f1620);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .media-modal-body .cloud-card .cloud-card-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #4f8cff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+        .media-modal-body .cloud-card .cloud-card-pan {
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .media-modal-body .cloud-card .cloud-card-code {
+            font-size: 13px;
+            opacity: 0.85;
+            font-family: ui-monospace, monospace;
+            background: rgba(255,255,255,0.1);
+            padding: 4px 12px;
+            border-radius: 10px;
+        }
+        .media-modal-body .cloud-card .cloud-card-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .media-modal-body .cloud-card .cloud-card-actions button {
+            border: none;
+            border-radius: 18px;
+            padding: 8px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .media-modal-body .cloud-card .cloud-open-btn {
+            background: #4f8cff;
+            color: #fff;
+        }
+        .media-modal-body .cloud-card .cloud-open-btn:hover {
+            background: #3c74e0;
+        }
+        .media-modal-body .cloud-card .cloud-copy-btn {
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+        }
+        .media-modal-body .cloud-card .cloud-copy-btn:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
         /* ===== 贴吧 / 社群 ===== */
         .community-section {
             margin-bottom: 28px;
@@ -3131,3 +3258,51 @@
             outline: 1px solid var(--teal);
             background: rgba(255,255,255,0.12);
         }
+
+/* ===== 发布新内容卡片：上下滚动竖条 ===== */
+#publishModal .modal {
+    max-height: min(88vh, 900px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(72, 169, 255, .9) rgba(255,255,255,.06);
+    padding-right: 18px;
+}
+#publishModal .modal::-webkit-scrollbar { width: 7px; }
+#publishModal .modal::-webkit-scrollbar-track {
+    background: rgba(255,255,255,.045);
+    border-radius: 10px;
+    margin: 12px 0;
+}
+#publishModal .modal::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #65d7ff, #3578ff);
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(53,120,255,.45);
+}
+#publishModal .modal::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #8be3ff, #4c8dff);
+}
+
+/* ===== 预览页：云盘入口强化 ===== */
+.btn-upload-cloud {
+    position: relative;
+    overflow: hidden;
+}
+.btn-upload-cloud::after {
+    content: '大文件推荐';
+    position: absolute;
+    top: 2px;
+    right: 5px;
+    font-size: 8px;
+    line-height: 1;
+    opacity: .65;
+    pointer-events: none;
+}
+
+/* 移动端仍保持可上下滚动 */
+@media (max-width: 700px) {
+    #publishModal .modal {
+        max-height: 90vh;
+        padding-right: 13px;
+    }
+    #publishModal .modal::-webkit-scrollbar { width: 6px; }
+}

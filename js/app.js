@@ -822,6 +822,14 @@
                         </div>
                         <span class="media-badge bili">📺 B站</span>`;
                     footHint = '点击播放';
+                } else if (t === 'cloud') {
+                    mediaHtml = `
+                        <div class="cloud-thumb">
+                            <div class="cloud-icon">☁️</div>
+                            <div class="cloud-name">${img.pan || '云盘'}</div>
+                        </div>
+                        <span class="media-badge cloud">☁️ 云盘</span>`;
+                    footHint = '点击打开';
                 } else if (t === 'video') {
                     mediaHtml = `<video src="${img.url}" preload="metadata" playsinline muted></video>
                        <span class="media-badge video">🎬 视频</span>`;
@@ -834,7 +842,7 @@
                     <div class="gallery-item" data-id="${img.id}" data-type="${t}" onclick="openMediaViewer(${img.id})">
                         ${mediaHtml}
                         <div class="caption">
-                            <strong>${img.title || (t === 'bilibili' ? (img.bvid || 'B站视频') : t === 'video' ? '未命名视频' : '未命名图片')}</strong>
+                            <strong>${img.title || (t === 'bilibili' ? (img.bvid || 'B站视频') : t === 'cloud' ? (img.pan || '云盘链接') : t === 'video' ? '未命名视频' : '未命名图片')}</strong>
                             ${img.desc ? img.desc : ''}
                         </div>
                         <div class="foot">
@@ -865,11 +873,41 @@
             const title = document.getElementById('mediaModalTitle');
             const fsBtn = document.getElementById('mediaFullscreenBtn');
             const tip = document.querySelector('.media-modal-tip');
-            title.textContent = item.title || (item.type === 'bilibili' ? 'B站视频' : item.type === 'video' ? '视频预览' : '图片预览');
+            title.textContent = item.title || (item.type === 'bilibili' ? 'B站视频' : item.type === 'cloud' ? (item.pan || '云盘链接') : item.type === 'video' ? '视频预览' : '图片预览');
             body.innerHTML = '';
             currentMediaEl = null;
 
-            if (item.type === 'bilibili' && item.bvid) {
+            if (item.type === 'cloud') {
+                const card = document.createElement('div');
+                card.className = 'cloud-card';
+                const codeHtml = item.code
+                    ? `<div class="cloud-card-code">提取码：${item.code}</div>`
+                    : '';
+                card.innerHTML = `
+                    <div class="cloud-card-icon">☁️</div>
+                    <div class="cloud-card-pan">${item.pan || '云盘'}</div>
+                    ${codeHtml}
+                    <div class="cloud-card-actions">
+                        <button type="button" class="cloud-open-btn">🔗 打开云盘链接</button>
+                        ${item.code ? '<button type="button" class="cloud-copy-btn">📋 复制提取码</button>' : ''}
+                    </div>
+                `;
+                card.querySelector('.cloud-open-btn').addEventListener('click', () => {
+                    window.open(item.url, '_blank', 'noopener');
+                });
+                const copyBtn = card.querySelector('.cloud-copy-btn');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', () => {
+                        navigator.clipboard?.writeText(item.code || '').then(() => {
+                            copyBtn.textContent = '✅ 已复制';
+                            setTimeout(() => { copyBtn.textContent = '📋 复制提取码'; }, 1500);
+                        }).catch(() => alert('复制失败，请手动复制：' + item.code));
+                    });
+                }
+                body.appendChild(card);
+                if (fsBtn) fsBtn.style.display = 'none';
+                if (tip) tip.textContent = '云盘文件不占用本机存储 · 点击按钮跳转到网盘打开';
+            } else if (item.type === 'bilibili' && item.bvid) {
                 const wrap = document.createElement('div');
                 wrap.className = 'bili-iframe-wrap';
                 // high_quality=1 & danmaku optional; as_wide=1
@@ -1148,6 +1186,95 @@
                 });
             }
             console.log('[B站] 嵌入按钮已绑定', !!openBtn, !!modal, !!form);
+        })();
+
+        // ----- 云盘嵌入 -----
+        function addCloudLink(raw, code, title, pan) {
+            const url = String(raw || '').trim();
+            if (!/^https?:\/\//i.test(url)) {
+                alert('请粘贴以 http:// 或 https:// 开头的网盘分享链接');
+                return false;
+            }
+            const images = getImages();
+            images.push({
+                id: genImageId(),
+                type: 'cloud',
+                url: url,
+                code: (code || '').trim(),
+                pan: pan || '其他',
+                title: (title && title.trim()) || pan || '云盘链接',
+                desc: '来自云盘分享'
+            });
+            try {
+                saveImages(images);
+                renderGallery();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function openCloudModal(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const modal = document.getElementById('cloudModal');
+            if (!modal) {
+                alert('未找到云盘窗口，请确认已更新最新页面文件');
+                return;
+            }
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => {
+                const input = document.getElementById('cloudInput');
+                if (input) input.focus();
+            }, 50);
+        }
+        window.openCloudModal = openCloudModal;
+
+        function closeCloudModal() {
+            const modal = document.getElementById('cloudModal');
+            const form = document.getElementById('cloudForm');
+            if (modal) modal.classList.remove('active');
+            if (form) form.reset();
+            document.body.style.overflow = '';
+        }
+        window.closeCloudModal = closeCloudModal;
+
+        (function bindCloudModal() {
+            const modal = document.getElementById('cloudModal');
+            const form = document.getElementById('cloudForm');
+            const openBtn = document.getElementById('addCloudBtn');
+            const closeBtn = document.getElementById('closeCloudBtn');
+
+            if (openBtn) openBtn.addEventListener('click', openCloudModal);
+            document.addEventListener('click', function(ev) {
+                const t = ev.target.closest && ev.target.closest('#addCloudBtn, .btn-upload-cloud');
+                if (t) openCloudModal(ev);
+            });
+            if (closeBtn) closeBtn.addEventListener('click', function(ev) {
+                ev.preventDefault();
+                closeCloudModal();
+            });
+            if (modal) {
+                modal.addEventListener('click', function(ev) {
+                    if (ev.target === modal) closeCloudModal();
+                });
+            }
+            if (form) {
+                form.addEventListener('submit', function(ev) {
+                    ev.preventDefault();
+                    const raw = document.getElementById('cloudInput')?.value || '';
+                    const code = document.getElementById('cloudCode')?.value || '';
+                    const title = document.getElementById('cloudTitle')?.value || '';
+                    const pan = document.getElementById('cloudPan')?.value || '';
+                    if (addCloudLink(raw, code, title, pan)) {
+                        closeCloudModal();
+                        if (typeof showTab === 'function') showTab('gallery', false);
+                    }
+                });
+            }
         })();
 
 
@@ -1926,7 +2053,7 @@
             if (/你好|您好|hi|hello|在吗/.test(t)) return '你好呀！我是博客小助手，可以问我关于本站的功能～';
             if (/文章|博客|写|发布/.test(t)) return '在「文章」页点「发布新内容」即可写文章或新闻；支持富文本和分类。';
             if (/搜索/.test(t)) return '点顶部放大镜图标可打开搜索，支持按标题、分类、摘要、正文过滤。';
-            if (/相册|图片|预览|视频|b站|哔哩/.test(t)) return '在「预览」可上传图片/小视频，或点「嵌入 B 站」添加大视频。';
+            if (/相册|图片|预览|视频|b站|哔哩|云盘|网盘/.test(t)) return '在「预览」可上传图片/小视频，点「嵌入 B 站」添加大视频，或点「添加云盘」放百度网盘/阿里云盘等分享链接。';
             if (/音乐|歌|循环/.test(t)) return '侧边栏「音乐框」可上传音频，🔁 按钮可开关循环播放。';
             if (/主题|暗色|黑夜|白天/.test(t)) return '侧边栏「主题切换」可选白天/黑夜等多种风格，也支持跟随系统。';
             if (/联系|微信|抖音/.test(t)) return '在「关于」页可管理联系方式卡片，并上传二维码图片。';

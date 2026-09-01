@@ -318,7 +318,7 @@
                     <div class="header-actions">
                         <div>
                             <h2>📷 预览集</h2>
-                            <p>上传图片/本地小视频，或嵌入 B 站视频（大视频推荐）</p>
+                            <p>上传图片/本地小视频，或嵌入 B 站视频、添加云盘链接（大文件推荐）</p>
                         </div>
                         <div class="gallery-upload-btns">
                             <button class="btn-upload" id="uploadImageBtn">
@@ -332,6 +332,9 @@
                             <button class="btn-upload btn-upload-bili" id="addBiliBtn" type="button" onclick="window.openBiliModal && window.openBiliModal(event)">
                                 📺 嵌入 B 站
                             </button>
+                            <button class="btn-upload btn-upload-cloud" id="addCloudBtn" type="button" onclick="window.openCloudModal && window.openCloudModal(event)">
+                                ☁️ 添加云盘
+                            </button>
                             <button class="btn-upload" id="syncGalleryBtn" type="button" onclick="window.syncGalleryFromRepo && window.syncGalleryFromRepo()" style="background:#6a6d75;">
                                 🔄 同步仓库图集
                             </button>
@@ -343,6 +346,7 @@
                     <button type="button" class="pill" data-media="image">仅图片</button>
                     <button type="button" class="pill" data-media="video">仅视频</button>
                     <button type="button" class="pill" data-media="bilibili">仅 B 站</button>
+                    <button type="button" class="pill" data-media="cloud">仅云盘</button>
                 </div>
                 <div class="gallery-grid" id="gallery-grid"></div>
             </div>
@@ -642,6 +646,34 @@
                 <input type="text" id="biliTitle" placeholder="默认使用 BV 号" />
                 <div class="actions">
                     <button type="button" class="btn-cancel" id="closeBiliBtn" onclick="window.closeBiliModal && window.closeBiliModal()">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 添加云盘 ===== -->
+    <div class="modal-overlay" id="cloudModal">
+        <div class="modal">
+            <h2>☁️ 添加云盘</h2>
+            <p class="sub">粘贴网盘分享链接，大文件不占用本机存储空间</p>
+            <form id="cloudForm">
+                <label>网盘类型</label>
+                <select id="cloudPan">
+                    <option value="百度网盘">百度网盘</option>
+                    <option value="阿里云盘">阿里云盘</option>
+                    <option value="夸克网盘">夸克网盘</option>
+                    <option value="迅雷云盘">迅雷云盘</option>
+                    <option value="其他">其他</option>
+                </select>
+                <label>分享链接 <span class="required">*</span></label>
+                <input type="text" id="cloudInput" placeholder="例如：https://pan.baidu.com/s/xxxxxx" required />
+                <label>提取码（选填）</label>
+                <input type="text" id="cloudCode" placeholder="例如：a1b2" maxlength="12" />
+                <label>标题（选填）</label>
+                <input type="text" id="cloudTitle" placeholder="默认使用网盘类型" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeCloudBtn" onclick="window.closeCloudModal && window.closeCloudModal()">取消</button>
                     <button type="submit" class="btn-submit">添加</button>
                 </div>
             </form>
