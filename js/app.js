@@ -798,6 +798,140 @@
 
         function genImageId() { return Date.now() + Math.floor(Math.random() * 1000); }
 
+        // ----- 本地云盘：File System Access API + IndexedDB -----
+        const LOCAL_CLOUD_DB = 'ZIH_LocalCloudDB';
+        const LOCAL_CLOUD_STORE = 'handles';
+        const LOCAL_CLOUD_KEY = 'directory';
+        let localCloudHandle = null;
+        const localObjectUrls = new Map();
+
+        function openLocalCloudDB() {
+            return new Promise((resolve, reject) => {
+                if (!('indexedDB' in window)) return reject(new Error('IndexedDB 不可用'));
+                const req = indexedDB.open(LOCAL_CLOUD_DB, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(LOCAL_CLOUD_STORE);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error || new Error('数据库打开失败'));
+            });
+        }
+        async function saveLocalCloudHandle(handle) {
+            const db = await openLocalCloudDB();
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(LOCAL_CLOUD_STORE, 'readwrite');
+                tx.objectStore(LOCAL_CLOUD_STORE).put(handle, LOCAL_CLOUD_KEY);
+                tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+            });
+            db.close();
+        }
+        async function loadLocalCloudHandle() {
+            try {
+                const db = await openLocalCloudDB();
+                const handle = await new Promise((resolve, reject) => {
+                    const tx = db.transaction(LOCAL_CLOUD_STORE, 'readonly');
+                    const req = tx.objectStore(LOCAL_CLOUD_STORE).get(LOCAL_CLOUD_KEY);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+                db.close();
+                return handle;
+            } catch (_) { return null; }
+        }
+        async function clearLocalCloudHandle() {
+            localCloudHandle = null;
+            try {
+                const db = await openLocalCloudDB();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(LOCAL_CLOUD_STORE, 'readwrite');
+                    tx.objectStore(LOCAL_CLOUD_STORE).delete(LOCAL_CLOUD_KEY);
+                    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+                });
+                db.close();
+            } catch (_) {}
+            updateLocalCloudUI();
+        }
+        async function verifyLocalCloudPermission(handle, request = false) {
+            if (!handle) return false;
+            try {
+                const opts = { mode: 'readwrite' };
+                if ((await handle.queryPermission(opts)) === 'granted') return true;
+                if (request && (await handle.requestPermission(opts)) === 'granted') return true;
+            } catch (_) {}
+            return false;
+        }
+        function updateLocalCloudUI() {
+            const status = document.getElementById('localCloudStatus');
+            const dot = document.getElementById('localCloudDot');
+            if (!status || !dot) return;
+            if (localCloudHandle) {
+                status.textContent = '已连接：' + (localCloudHandle.name || '本地文件夹');
+                dot.classList.add('active');
+            } else {
+                status.textContent = '尚未连接文件夹';
+                dot.classList.remove('active');
+            }
+        }
+        async function chooseLocalCloudFolder() {
+            if (!window.showDirectoryPicker) {
+                alert('当前浏览器不支持本地云盘文件夹连接。请使用最新版 Chrome / Edge，并通过 HTTPS 或 localhost 打开网站。');
+                return false;
+            }
+            try {
+                const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                localCloudHandle = handle;
+                await saveLocalCloudHandle(handle);
+                updateLocalCloudUI();
+                alert('本地云盘已连接：' + (handle.name || '文件夹') + '\n\n之后上传图片/视频会优先复制到这个文件夹。');
+                return true;
+            } catch (e) {
+                if (e && e.name !== 'AbortError') alert('连接文件夹失败：' + (e.message || e));
+                return false;
+            }
+        }
+        async function initLocalCloud() {
+            if (!window.showDirectoryPicker) return;
+            localCloudHandle = await loadLocalCloudHandle();
+            if (localCloudHandle) {
+                const ok = await verifyLocalCloudPermission(localCloudHandle, false);
+                if (!ok) localCloudHandle = null;
+            }
+            updateLocalCloudUI();
+        }
+        async function writeFileToLocalCloud(file) {
+            if (!localCloudHandle) return false;
+            if (!(await verifyLocalCloudPermission(localCloudHandle, true))) return false;
+            const safeName = file.name.replace(/[\\/:*?"<>|]/g, '_');
+            const fh = await localCloudHandle.getFileHandle(safeName, { create: true });
+            const writable = await fh.createWritable();
+            await writable.write(file);
+            await writable.close();
+            return { fileName: safeName, folderName: localCloudHandle.name || '本地云盘' };
+        }
+        async function getLocalFileUrl(item) {
+            if (!localCloudHandle || !item.localFile || !item.fileName) return null;
+            try {
+                if (!(await verifyLocalCloudPermission(localCloudHandle, false))) return null;
+                const fh = await localCloudHandle.getFileHandle(item.fileName);
+                const file = await fh.getFile();
+                const old = localObjectUrls.get(item.id);
+                if (old) URL.revokeObjectURL(old);
+                const url = URL.createObjectURL(file);
+                localObjectUrls.set(item.id, url);
+                return url;
+            } catch (_) { return null; }
+        }
+        async function hydrateLocalGalleryMedia() {
+            const items = getImages().filter(i => i.localFile);
+            for (const item of items) {
+                const url = await getLocalFileUrl(item);
+                const node = document.querySelector(`.gallery-item[data-id="${item.id}"]`);
+                if (!node || !url) continue;
+                const media = node.querySelector('img, video');
+                if (media) media.src = url;
+                const oldBadge = node.querySelector('.gallery-local-badge');
+                if (!oldBadge) node.insertAdjacentHTML('afterbegin', '<span class="gallery-local-badge">💻 本地云盘</span>');
+            }
+        }
+
         function renderGallery() {
             const container = document.getElementById('gallery-grid');
             let images = getImages();
@@ -831,12 +965,14 @@
                         <span class="media-badge cloud">☁️ 云盘</span>`;
                     footHint = '点击打开';
                 } else if (t === 'video') {
-                    mediaHtml = `<video src="${img.url}" preload="metadata" playsinline muted></video>
-                       <span class="media-badge video">🎬 视频</span>`;
+                    const src = img.localFile ? '' : (img.url || '');
+                    mediaHtml = `<video src="${src}" preload="metadata" playsinline muted></video>
+                       <span class="media-badge video">🎬 视频</span>${img.localFile ? '<span class="gallery-local-badge">💻 本地云盘</span>' : ''}`;
                     footHint = '点击播放';
                 } else {
-                    mediaHtml = `<img src="${img.url}" alt="${img.title || ''}" loading="lazy" />
-                       <span class="media-badge">📷 图片</span>`;
+                    const src = img.localFile ? '' : (img.url || '');
+                    mediaHtml = `<img src="${src}" alt="${img.title || ''}" loading="lazy" />
+                       <span class="media-badge">📷 图片</span>${img.localFile ? '<span class="gallery-local-badge">💻 本地云盘</span>' : ''}`;
                 }
                 html += `
                     <div class="gallery-item" data-id="${img.id}" data-type="${t}" onclick="openMediaViewer(${img.id})">
@@ -853,12 +989,13 @@
                 `;
             });
             container.innerHTML = html;
+            hydrateLocalGalleryMedia();
         }
 
         // ----- 媒体预览：点击放大 + 全屏 -----
         let currentMediaEl = null;
 
-        function openMediaViewer(id) {
+        async function openMediaViewer(id) {
             let all = getImages();
             if (galleryMediaFilter && galleryMediaFilter !== 'all') {
                 all = all.filter(i => (i.type || 'image') === galleryMediaFilter);
@@ -868,6 +1005,14 @@
             if (mediaViewerIndex < 0) mediaViewerIndex = 0;
             const item = all.find(i => i.id === id) || getImages().find(i => i.id === id);
             if (!item) return;
+            if (item.localFile) {
+                const localUrl = await getLocalFileUrl(item);
+                if (!localUrl) {
+                    alert('无法读取本地云盘文件。请重新连接云盘文件夹，并确认文件没有被移动或删除。');
+                    return;
+                }
+                item = { ...item, url: localUrl };
+            }
             const modal = document.getElementById('mediaModal');
             const body = document.getElementById('mediaModalBody');
             const title = document.getElementById('mediaModalTitle');
@@ -1035,34 +1180,39 @@
 
             let loaded = 0;
             const total = validFiles.length;
-            validFiles.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(ev) {
-                    const dataUrl = ev.target.result;
-                    const name = file.name.replace(/\.[^.]+$/, '');
-                    images.push({
-                        id: genImageId(),
-                        url: dataUrl,
-                        title: name,
-                        desc: '',
-                        type: mediaType
-                    });
-                    loaded++;
-                    if (loaded === total) {
-                        try {
-                            saveImages(images);
-                            renderGallery();
-                        } catch (_) {}
+            validFiles.forEach(async file => {
+                try {
+                    if (localCloudHandle) {
+                        const saved = await writeFileToLocalCloud(file);
+                        if (saved) {
+                            images.push({
+                                id: genImageId(), url: '', title: file.name.replace(/\.[^.]+$/, ''),
+                                desc: `来自 ${saved.folderName}`, type: mediaType, localFile: true,
+                                fileName: saved.fileName, folderName: saved.folderName
+                            });
+                            loaded++;
+                            if (loaded === total) { saveImages(images); renderGallery(); }
+                            return;
+                        }
                     }
-                };
-                reader.onerror = function() {
-                    loaded++;
-                    alert(`读取「${file.name}」失败`);
-                    if (loaded === total) {
-                        try { saveImages(images); renderGallery(); } catch (_) {}
+                    if (file.size > MAX_MEDIA_SIZE) {
+                        alert(`「${file.name}」无法写入本地云盘，且超过 4MB，因此跳过。`);
+                        loaded++;
+                        return;
                     }
-                };
-                reader.readAsDataURL(file);
+                    const reader = new FileReader();
+                    reader.onload = function(ev) {
+                        const dataUrl = ev.target.result;
+                        images.push({ id: genImageId(), url: dataUrl, title: file.name.replace(/\.[^.]+$/, ''), desc: '', type: mediaType });
+                        loaded++;
+                        if (loaded === total) { try { saveImages(images); renderGallery(); } catch (_) {} }
+                    };
+                    reader.onerror = function() { loaded++; alert(`读取「${file.name}」失败`); };
+                    reader.readAsDataURL(file);
+                } catch (err) {
+                    loaded++;
+                    alert(`保存「${file.name}」失败：${err.message || err}`);
+                }
             });
         }
 
@@ -1241,6 +1391,16 @@
             document.body.style.overflow = '';
         }
         window.closeCloudModal = closeCloudModal;
+
+        (function bindLocalCloud() {
+            const choose = document.getElementById('chooseCloudFolderBtn');
+            const clear = document.getElementById('clearCloudFolderBtn');
+            if (choose) choose.addEventListener('click', chooseLocalCloudFolder);
+            if (clear) clear.addEventListener('click', async () => {
+                if (confirm('断开本地云盘连接？已有文件不会删除。')) await clearLocalCloudHandle();
+            });
+            initLocalCloud();
+        })();
 
         (function bindCloudModal() {
             const modal = document.getElementById('cloudModal');

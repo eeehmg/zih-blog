@@ -333,7 +333,7 @@
                                 📺 嵌入 B 站
                             </button>
                             <button class="btn-upload btn-upload-cloud" id="addCloudBtn" type="button" onclick="window.openCloudModal && window.openCloudModal(event)">
-                                ☁️ 添加云盘
+                                ☁️ 云盘
                             </button>
                             <button class="btn-upload" id="syncGalleryBtn" type="button" onclick="window.syncGalleryFromRepo && window.syncGalleryFromRepo()" style="background:#6a6d75;">
                                 🔄 同步仓库图集
@@ -652,11 +652,28 @@
         </div>
     </div>
 
-    <!-- ===== 添加云盘 ===== -->
+    <!-- ===== 云盘 / 本地云盘 ===== -->
     <div class="modal-overlay" id="cloudModal">
-        <div class="modal">
-            <h2>☁️ 添加云盘</h2>
-            <p class="sub">粘贴网盘分享链接，大文件不占用本机存储空间</p>
+        <div class="modal cloud-modal">
+            <h2>☁️ 云盘</h2>
+            <p class="sub">连接电脑上的云盘文件夹；如果文件夹由 OneDrive / Google Drive / Dropbox 等同步，也会随系统自动同步。</p>
+
+            <div class="local-cloud-box">
+                <div class="local-cloud-head">
+                    <div>
+                        <strong>💻 本地云盘文件夹</strong>
+                        <div class="local-cloud-status" id="localCloudStatus">尚未连接文件夹</div>
+                    </div>
+                    <span class="local-cloud-dot" id="localCloudDot"></span>
+                </div>
+                <div class="local-cloud-actions">
+                    <button type="button" class="btn-submit" id="chooseCloudFolderBtn">📁 选择文件夹</button>
+                    <button type="button" class="btn-cancel" id="clearCloudFolderBtn">断开</button>
+                </div>
+                <div class="local-cloud-hint">连接后，「上传图片 / 上传视频」会优先把文件复制到这个文件夹，并在预览中显示。需要 Chrome / Edge 等支持 File System Access API 的桌面浏览器。</div>
+            </div>
+
+            <div class="cloud-divider"><span>或添加远程网盘分享链接</span></div>
             <form id="cloudForm">
                 <label>网盘类型</label>
                 <select id="cloudPan">

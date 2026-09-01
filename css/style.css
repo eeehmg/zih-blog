@@ -1784,6 +1784,28 @@
             pointer-events: none;
         }
 
+
+        /* ===== 本地云盘 ===== */
+        .cloud-modal { max-width: 620px; }
+        .local-cloud-box {
+            border: 1px solid var(--line, #e7e8ec);
+            background: var(--card, #fafbfc);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 12px 0 18px;
+        }
+        .local-cloud-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .local-cloud-head strong { font-size:15px; }
+        .local-cloud-status { margin-top:5px; color:var(--ink-faint); font-size:12px; }
+        .local-cloud-dot { width:9px; height:9px; border-radius:50%; background:#bbb; box-shadow:0 0 0 4px rgba(0,0,0,.04); }
+        .local-cloud-dot.active { background:#18b87a; box-shadow:0 0 0 4px rgba(24,184,122,.12); }
+        .local-cloud-actions { display:flex; gap:8px; margin-top:12px; }
+        .local-cloud-actions button { flex:1; }
+        .local-cloud-hint { margin-top:10px; font-size:11px; line-height:1.6; color:var(--ink-faint); }
+        .cloud-divider { display:flex; align-items:center; gap:10px; color:var(--ink-faint); font-size:11px; margin:14px 0; }
+        .cloud-divider:before,.cloud-divider:after { content:""; flex:1; height:1px; background:var(--line, #e7e8ec); }
+        .gallery-local-badge { position:absolute; right:10px; top:10px; font-size:11px; padding:3px 8px; border-radius:10px; background:rgba(23,182,166,.9); color:#fff; }
+
         /* ===== 相册样式 ===== */
         .gallery-header {
             margin-bottom: 24px;
