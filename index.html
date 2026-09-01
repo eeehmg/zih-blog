@@ -162,8 +162,8 @@
                         <div class="msg bot">你好！我是 AI 助手，有什么可以帮助你的？</div>
                     </div>
                     <div class="ai-input-row">
-                        <input type="text" id="aiInput" placeholder="输入消息..." />
-                        <button id="aiSendBtn">发送</button>
+                        <input type="text" id="aiInput" placeholder="输入消息..." autocomplete="off" />
+                        <button type="button" id="aiSendBtn" onclick="window.aiSend && window.aiSend(event)">发送</button>
                     </div>
                     <div class="ai-status" id="aiStatus">当前模式：AI 自动回复</div>
                 </div>
@@ -279,7 +279,7 @@
                                 🎬 上传视频
                                 <input type="file" id="videoInput" accept="video/*" multiple />
                             </button>
-                            <button class="btn-upload btn-upload-bili" id="addBiliBtn" type="button">
+                            <button class="btn-upload btn-upload-bili" id="addBiliBtn" type="button" onclick="window.openBiliModal && window.openBiliModal(event)">
                                 📺 嵌入 B 站
                             </button>
                         </div>
@@ -305,7 +305,26 @@
                         <span># 摄影</span>
                     </div>
                 </div>
-                <h3 style="font-size:18px;font-weight:700;margin-bottom:16px;">💬 访客留言</h3>
+                <!-- 贴吧 & 社群 -->
+                <div class="community-section">
+                    <div class="community-header">
+                        <h3>📌 贴吧</h3>
+                        <button type="button" class="btn-add-mini" id="addTiebaBtn">➕ 添加贴吧</button>
+                    </div>
+                    <p class="community-desc">关注的百度贴吧，点击跳转</p>
+                    <div class="community-grid" id="tieba-grid"></div>
+                </div>
+
+                <div class="community-section">
+                    <div class="community-header">
+                        <h3>👥 社群</h3>
+                        <button type="button" class="btn-add-mini" id="addGroupBtn">➕ 添加社群</button>
+                    </div>
+                    <p class="community-desc">QQ 群 / 微信群 / Discord 等，点击打开链接</p>
+                    <div class="community-grid" id="group-grid"></div>
+                </div>
+
+                <h3 style="font-size:18px;font-weight:700;margin:28px 0 16px;">💬 访客留言</h3>
                 <div class="comment-form">
                     <div id="replyHint" class="reply-hint" style="display:none;">
                         回复 <strong id="replyToName"></strong>
@@ -447,6 +466,54 @@
         </div>
     </div>
 
+    <!-- ===== 添加贴吧 ===== -->
+    <div class="modal-overlay" id="tiebaModal">
+        <div class="modal">
+            <h2>📌 添加贴吧</h2>
+            <p class="sub">填写贴吧名称和链接</p>
+            <form id="tiebaForm">
+                <label>贴吧名称 <span class="required">*</span></label>
+                <input type="text" id="tiebaName" placeholder="例如：编程吧" required />
+                <label>链接 <span class="required">*</span></label>
+                <input type="url" id="tiebaUrl" placeholder="https://tieba.baidu.com/f?kw=..." required />
+                <label>简介（选填）</label>
+                <input type="text" id="tiebaDesc" placeholder="一句话介绍" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeTiebaBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 添加社群 ===== -->
+    <div class="modal-overlay" id="groupModal">
+        <div class="modal">
+            <h2>👥 添加社群</h2>
+            <p class="sub">QQ 群、微信群、Discord、Telegram 等</p>
+            <form id="groupForm">
+                <label>类型</label>
+                <select id="groupType">
+                    <option value="qq">QQ 群</option>
+                    <option value="wechat">微信群</option>
+                    <option value="discord">Discord</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="other">其他</option>
+                </select>
+                <label>名称 <span class="required">*</span></label>
+                <input type="text" id="groupName" placeholder="例如：技术交流群" required />
+                <label>链接或号 <span class="required">*</span></label>
+                <input type="text" id="groupLink" placeholder="群链接 / 群号 / 邀请链接" required />
+                <label>简介（选填）</label>
+                <input type="text" id="groupDesc" placeholder="一句话介绍" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeGroupBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- ===== 嵌入 B 站视频 ===== -->
     <div class="modal-overlay" id="biliModal">
         <div class="modal">
@@ -458,7 +525,7 @@
                 <label>标题（选填）</label>
                 <input type="text" id="biliTitle" placeholder="默认使用 BV 号" />
                 <div class="actions">
-                    <button type="button" class="btn-cancel" id="closeBiliBtn">取消</button>
+                    <button type="button" class="btn-cancel" id="closeBiliBtn" onclick="window.closeBiliModal && window.closeBiliModal()">取消</button>
                     <button type="submit" class="btn-submit">添加</button>
                 </div>
             </form>

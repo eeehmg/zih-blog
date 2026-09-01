@@ -903,36 +903,71 @@
             }
         }
 
+        function openBiliModal(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const modal = document.getElementById('biliModal');
+            if (!modal) {
+                alert('未找到 B 站嵌入窗口，请确认已更新最新页面文件');
+                return;
+            }
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => {
+                const input = document.getElementById('biliInput');
+                if (input) { input.focus(); input.select(); }
+            }, 50);
+        }
+        window.openBiliModal = openBiliModal;
+
+        function closeBiliModal() {
+            const modal = document.getElementById('biliModal');
+            const form = document.getElementById('biliForm');
+            if (modal) modal.classList.remove('active');
+            if (form) form.reset();
+            document.body.style.overflow = '';
+        }
+        window.closeBiliModal = closeBiliModal;
+
         (function bindBiliModal() {
             const modal = document.getElementById('biliModal');
             const form = document.getElementById('biliForm');
             const openBtn = document.getElementById('addBiliBtn');
             const closeBtn = document.getElementById('closeBiliBtn');
-            if (!modal || !form) return;
-            openBtn?.addEventListener('click', () => {
-                modal.classList.add('active');
-                document.getElementById('biliInput')?.focus();
+
+            // 多重绑定，避免点不到
+            if (openBtn) {
+                openBtn.addEventListener('click', openBiliModal);
+            }
+            // 事件委托兜底（防止按钮被重绘或后插入）
+            document.addEventListener('click', function(ev) {
+                const t = ev.target.closest && ev.target.closest('#addBiliBtn, .btn-upload-bili');
+                if (t) openBiliModal(ev);
             });
-            closeBtn?.addEventListener('click', () => {
-                modal.classList.remove('active');
-                form.reset();
+
+            if (closeBtn) closeBtn.addEventListener('click', function(ev) {
+                ev.preventDefault();
+                closeBiliModal();
             });
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                    form.reset();
-                }
-            });
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const raw = document.getElementById('biliInput').value;
-                const title = document.getElementById('biliTitle').value;
-                if (addBilibiliVideo(raw, title)) {
-                    modal.classList.remove('active');
-                    form.reset();
-                    showTab('gallery', false);
-                }
-            });
+            if (modal) {
+                modal.addEventListener('click', function(ev) {
+                    if (ev.target === modal) closeBiliModal();
+                });
+            }
+            if (form) {
+                form.addEventListener('submit', function(ev) {
+                    ev.preventDefault();
+                    const raw = document.getElementById('biliInput')?.value || '';
+                    const title = document.getElementById('biliTitle')?.value || '';
+                    if (addBilibiliVideo(raw, title)) {
+                        closeBiliModal();
+                        if (typeof showTab === 'function') showTab('gallery', false);
+                    }
+                });
+            }
+            console.log('[B站] 嵌入按钮已绑定', !!openBtn, !!modal, !!form);
         })();
 
 
@@ -1021,6 +1056,8 @@
             saveComments(comments);
             if (replyParentId === id) cancelReply();
             renderComments();
+        renderTieba();
+        renderGroups();
         }
 
         function startReply(parentId, name) {
@@ -1068,10 +1105,193 @@
             });
             saveComments(comments);
             renderComments();
+        renderTieba();
+        renderGroups();
             document.getElementById('commentContent').value = '';
             cancelReply();
             const firstCard = document.querySelector('#comment-grid .comment-thread, #comment-grid .comment-card');
             if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+
+        // ============================================================
+        // 5.5 贴吧 & 社群
+        // ============================================================
+        const TIEBA_KEY = 'ZIH_tieba';
+        const GROUP_KEY = 'ZIH_groups';
+
+        const defaultTieba = [
+            { id: 1, name: '编程吧', url: 'https://tieba.baidu.com/f?kw=%E7%BC%96%E7%A8%8B', desc: '编程学习交流' }
+        ];
+        const defaultGroups = [
+            { id: 1, type: 'qq', name: '技术交流群', link: 'https://qm.qq.com/', desc: '示例 QQ 群链接' }
+        ];
+
+        const GROUP_ICONS = {
+            qq: '💬',
+            wechat: '💚',
+            discord: '🎮',
+            telegram: '✈️',
+            other: '👥'
+        };
+        const GROUP_LABELS = {
+            qq: 'QQ 群',
+            wechat: '微信群',
+            discord: 'Discord',
+            telegram: 'Telegram',
+            other: '社群'
+        };
+
+        function getTieba() {
+            const stored = localStorage.getItem(TIEBA_KEY);
+            if (stored) {
+                try { return JSON.parse(stored); } catch (_) {}
+            }
+            localStorage.setItem(TIEBA_KEY, JSON.stringify(defaultTieba));
+            return defaultTieba.slice();
+        }
+        function saveTieba(list) { localStorage.setItem(TIEBA_KEY, JSON.stringify(list)); }
+
+        function getGroups() {
+            const stored = localStorage.getItem(GROUP_KEY);
+            if (stored) {
+                try { return JSON.parse(stored); } catch (_) {}
+            }
+            localStorage.setItem(GROUP_KEY, JSON.stringify(defaultGroups));
+            return defaultGroups.slice();
+        }
+        function saveGroups(list) { localStorage.setItem(GROUP_KEY, JSON.stringify(list)); }
+
+        function genCommunityId() { return Date.now() + Math.floor(Math.random() * 1000); }
+
+        function renderTieba() {
+            const box = document.getElementById('tieba-grid');
+            if (!box) return;
+            const list = getTieba();
+            if (!list.length) {
+                box.innerHTML = '<p class="community-empty">暂无贴吧，点击「添加贴吧」创建</p>';
+                return;
+            }
+            box.innerHTML = list.map(item => `
+                <a class="community-card" href="${item.url}" target="_blank" rel="noopener noreferrer">
+                    <span class="c-icon">📌</span>
+                    <span class="c-name">${item.name}</span>
+                    <span class="c-type">百度贴吧</span>
+                    ${item.desc ? `<span class="c-desc">${item.desc}</span>` : ''}
+                    <button type="button" class="c-del" title="删除" onclick="event.preventDefault();event.stopPropagation();deleteTieba(${item.id})">🗑️</button>
+                </a>
+            `).join('');
+        }
+
+        function renderGroups() {
+            const box = document.getElementById('group-grid');
+            if (!box) return;
+            const list = getGroups();
+            if (!list.length) {
+                box.innerHTML = '<p class="community-empty">暂无社群，点击「添加社群」创建</p>';
+                return;
+            }
+            box.innerHTML = list.map(item => {
+                const isUrl = /^https?:\/\//i.test(item.link || '');
+                const icon = GROUP_ICONS[item.type] || '👥';
+                const label = GROUP_LABELS[item.type] || '社群';
+                const extra = isUrl ? '' : `<span class="c-desc">点击复制：${item.link}</span>`;
+                return `
+                <div class="community-card" data-id="${item.id}" data-link="${(item.link || '').replace(/"/g, '&quot;')}" data-isurl="${isUrl ? '1' : '0'}">
+                    <span class="c-icon">${icon}</span>
+                    <span class="c-name">${item.name}</span>
+                    <span class="c-type">${label}</span>
+                    ${item.desc ? `<span class="c-desc">${item.desc}</span>` : ''}
+                    ${extra}
+                    <button type="button" class="c-del" title="删除" data-del-group="${item.id}">🗑️</button>
+                </div>`;
+            }).join('');
+
+            box.querySelectorAll('.community-card').forEach(card => {
+                card.addEventListener('click', function(e) {
+                    if (e.target.closest('.c-del')) return;
+                    const link = this.dataset.link;
+                    const isUrl = this.dataset.isurl === '1';
+                    if (isUrl && link) {
+                        window.open(link, '_blank', 'noopener,noreferrer');
+                    } else if (link) {
+                        navigator.clipboard.writeText(link).then(() => {
+                            alert('已复制：' + link);
+                        }).catch(() => {
+                            prompt('请手动复制：', link);
+                        });
+                    }
+                });
+            });
+            box.querySelectorAll('[data-del-group]').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    deleteGroup(parseInt(this.dataset.delGroup, 10));
+                });
+            });
+        }
+
+        function deleteTieba(id) {
+            if (!confirm('确定删除这个贴吧？')) return;
+            saveTieba(getTieba().filter(i => i.id !== id));
+            renderTieba();
+        }
+        function deleteGroup(id) {
+            if (!confirm('确定删除这个社群？')) return;
+            saveGroups(getGroups().filter(i => i.id !== id));
+            renderGroups();
+        }
+        window.deleteTieba = deleteTieba;
+        window.deleteGroup = deleteGroup;
+
+        function openModal(id) {
+            const m = document.getElementById(id);
+            if (m) {
+                m.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        function closeModal(id, formId) {
+            const m = document.getElementById(id);
+            if (m) m.classList.remove('active');
+            if (formId) document.getElementById(formId)?.reset();
+            document.body.style.overflow = '';
+        }
+
+        document.getElementById('addTiebaBtn')?.addEventListener('click', () => openModal('tiebaModal'));
+        document.getElementById('closeTiebaBtn')?.addEventListener('click', () => closeModal('tiebaModal', 'tiebaForm'));
+        document.getElementById('tiebaModal')?.addEventListener('click', e => {
+            if (e.target.id === 'tiebaModal') closeModal('tiebaModal', 'tiebaForm');
+        });
+        document.getElementById('tiebaForm')?.addEventListener('submit', e => {
+            e.preventDefault();
+            const name = document.getElementById('tiebaName').value.trim();
+            const url = document.getElementById('tiebaUrl').value.trim();
+            const desc = document.getElementById('tiebaDesc').value.trim();
+            if (!name || !url) return;
+            const list = getTieba();
+            list.push({ id: genCommunityId(), name, url, desc });
+            saveTieba(list);
+            renderTieba();
+            closeModal('tiebaModal', 'tiebaForm');
+        });
+
+        document.getElementById('addGroupBtn')?.addEventListener('click', () => openModal('groupModal'));
+        document.getElementById('closeGroupBtn')?.addEventListener('click', () => closeModal('groupModal', 'groupForm'));
+        document.getElementById('groupModal')?.addEventListener('click', e => {
+            if (e.target.id === 'groupModal') closeModal('groupModal', 'groupForm');
+        });
+        document.getElementById('groupForm')?.addEventListener('submit', e => {
+            e.preventDefault();
+            const type = document.getElementById('groupType').value;
+            const name = document.getElementById('groupName').value.trim();
+            const link = document.getElementById('groupLink').value.trim();
+            const desc = document.getElementById('groupDesc').value.trim();
+            if (!name || !link) return;
+            const list = getGroups();
+            list.push({ id: genCommunityId(), type, name, link, desc });
+            saveGroups(list);
+            renderGroups();
+            closeModal('groupModal', 'groupForm');
         });
 
         // ============================================================
@@ -1483,18 +1703,25 @@
         }
 
         // ============================================================
-        // 8. AI 在线客服
+        // 8. AI 在线客服（本地模拟回复，不依赖外网 API）
         // ============================================================
         let currentMode = 'ai';
-        const chatBox = document.getElementById('aiChatBox');
-        const aiInput = document.getElementById('aiInput');
-        const aiSendBtn = document.getElementById('aiSendBtn');
-        const aiStatus = document.getElementById('aiStatus');
-        const modeBtns = document.querySelectorAll('.mode-btn');
+
+        function getAiEls() {
+            return {
+                chatBox: document.getElementById('aiChatBox'),
+                aiInput: document.getElementById('aiInput'),
+                aiSendBtn: document.getElementById('aiSendBtn'),
+                aiStatus: document.getElementById('aiStatus'),
+                modeBtns: document.querySelectorAll('.ai-mode-toggle .mode-btn')
+            };
+        }
 
         function addMessage(text, type) {
+            const { chatBox } = getAiEls();
+            if (!chatBox) return;
             const msg = document.createElement('div');
-            msg.className = `msg ${type}`;
+            msg.className = 'msg ' + type;
             msg.textContent = text;
             chatBox.appendChild(msg);
             chatBox.scrollTop = chatBox.scrollHeight;
@@ -1502,45 +1729,83 @@
 
         function switchMode(mode) {
             currentMode = mode;
-            modeBtns.forEach(btn => { btn.classList.toggle('active', btn.dataset.mode === mode); });
-            aiStatus.textContent = `当前模式：${mode === 'ai' ? 'AI 自动回复' : '人工客服'}`;
-            chatBox.innerHTML = '';
+            const { modeBtns, aiStatus, chatBox } = getAiEls();
+            modeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
+            if (aiStatus) aiStatus.textContent = mode === 'ai' ? '当前模式：AI 自动回复' : '当前模式：人工客服';
+            if (chatBox) chatBox.innerHTML = '';
             if (mode === 'ai') {
                 addMessage('你好！我是 AI 助手，有什么可以帮助你的？', 'bot');
             } else {
                 addMessage('👤 人工客服已接入，请稍候...', 'system');
-                setTimeout(() => { addMessage('您好，我是人工客服，请问有什么可以帮您？', 'bot'); }, 600);
+                setTimeout(() => addMessage('您好，我是人工客服，请问有什么可以帮您？', 'bot'), 500);
             }
         }
 
-        modeBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const mode = this.dataset.mode;
-                if (mode !== currentMode) { switchMode(mode); }
-            });
-        });
+        function aiReply(userText) {
+            const t = (userText || '').toLowerCase();
+            if (/你好|您好|hi|hello|在吗/.test(t)) return '你好呀！我是博客小助手，可以问我关于本站的功能～';
+            if (/文章|博客|写|发布/.test(t)) return '在「文章」页点「发布新内容」即可写文章或新闻；支持富文本和分类。';
+            if (/搜索/.test(t)) return '点顶部放大镜图标可打开搜索，支持按标题、分类、摘要、正文过滤。';
+            if (/相册|图片|预览|视频|b站|哔哩/.test(t)) return '在「预览」可上传图片/小视频，或点「嵌入 B 站」添加大视频。';
+            if (/音乐|歌|循环/.test(t)) return '侧边栏「音乐框」可上传音频，🔁 按钮可开关循环播放。';
+            if (/主题|暗色|黑夜|白天/.test(t)) return '侧边栏「主题切换」可选白天/黑夜等多种风格，也支持跟随系统。';
+            if (/联系|微信|抖音/.test(t)) return '在「关于」页可管理联系方式卡片，并上传二维码图片。';
+            if (/谢谢|感谢/.test(t)) return '不客气！还有问题随时问我 🙂';
+            const fallback = [
+                '好的，我明白了。',
+                '收到！你可以在侧边栏切换主题、听音乐，或去预览页看媒体。',
+                '这是一个很好的问题。本站数据保存在浏览器本地，可用「数据管理」导出备份。',
+                '请稍等…（本地演示回复）建议试试搜索或发布一篇新文章。',
+                '很高兴为你服务！点顶部导航可切换 文章 / 预览 / 留言 / 关于。'
+            ];
+            return fallback[Math.floor(Math.random() * fallback.length)];
+        }
 
-        function handleSend() {
+        function handleSend(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const { aiInput } = getAiEls();
+            if (!aiInput) return;
             const text = aiInput.value.trim();
             if (!text) return;
             addMessage(text, 'user');
             aiInput.value = '';
             if (currentMode === 'ai') {
-                setTimeout(() => {
-                    const responses = ['好的，我明白了。', '谢谢您的反馈，我会为您处理。', '这是一个很好的问题，让我想想...',
-                        '您可以尝试查看我们的帮助文档。', '请稍等，正在为您查询...', '收到，已记录您的需求。', '很高兴为您服务！'
-                    ];
-                    const reply = responses[Math.floor(Math.random() * responses.length)];
-                    addMessage(reply, 'bot');
-                }, 500 + Math.random() * 600);
+                const reply = aiReply(text);
+                setTimeout(() => addMessage(reply, 'bot'), 350 + Math.random() * 400);
             } else {
-                setTimeout(() => { addMessage('📩 已收到您的消息，人工客服将尽快回复您。', 'system'); }, 300);
+                setTimeout(() => addMessage('📩 已收到您的消息，人工客服将尽快回复您。', 'system'), 300);
             }
         }
+        window.aiSend = handleSend;
 
-        aiSendBtn.addEventListener('click', handleSend);
-        aiInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault();
-                handleSend(); } });
+        (function bindAiChat() {
+            const { aiInput, aiSendBtn, modeBtns } = getAiEls();
+            if (aiSendBtn) {
+                aiSendBtn.addEventListener('click', handleSend);
+            }
+            if (aiInput) {
+                aiInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSend(e);
+                    }
+                });
+            }
+            modeBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const mode = this.dataset.mode;
+                    if (mode && mode !== currentMode) switchMode(mode);
+                });
+            });
+            // 事件委托兜底
+            document.addEventListener('click', function(ev) {
+                if (ev.target && ev.target.id === 'aiSendBtn') handleSend(ev);
+            });
+            console.log('[AI客服] 已绑定', !!aiSendBtn, !!aiInput);
+        })();
 
         // ============================================================
         // 9. 数据导出 / 导入
@@ -1558,7 +1823,9 @@
                 images: getImages(),
                 contacts: getContacts(),
                 profile: getProfile(),
-                music: getMusicData()
+                music: getMusicData(),
+                tieba: getTieba(),
+                groups: getGroups()
             };
             const json = JSON.stringify(data, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
@@ -1604,12 +1871,18 @@
                     if (data.contacts) saveContacts(data.contacts);
                     if (data.profile) saveProfile(data.profile);
                     if (data.music) saveMusicData(data.music);
+                    if (data.tieba) saveTieba(data.tieba);
+                    if (data.groups) saveGroups(data.groups);
                     renderProfile();
                     renderAll();
                     renderGallery();
                     renderComments();
+        renderTieba();
+        renderGroups();
                     renderContacts();
                     loadMusic();
+                    renderTieba();
+                    renderGroups();
                     alert('✅ 数据导入成功！所有内容已恢复。');
                     importFileInput.value = '';
                 } catch (err) { alert('❌ 导入失败：' + err.message);
@@ -1695,7 +1968,7 @@
             iconSearch.classList.toggle('active-icon', tabId === 'blog');
             iconGrid.classList.toggle('active-icon', tabId === 'gallery');
             if (tabId === 'gallery') renderGallery();
-            if (tabId === 'personal') renderComments();
+            if (tabId === 'personal') { renderComments(); renderTieba(); renderGroups(); }
             if (tabId === 'about') renderContacts();
             if (fromIcon) {
                 if (tabId === 'blog') { iconSearch.classList.remove('pulse');
@@ -2665,6 +2938,8 @@
         renderAll();
         renderGallery();
         renderComments();
+        renderTieba();
+        renderGroups();
         renderContacts();
         loadMusic();
         switchMode('ai');
