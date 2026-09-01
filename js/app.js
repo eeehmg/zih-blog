@@ -120,6 +120,8 @@
                         if (p.content === undefined) p.content = '';
                         if (p.likes === undefined) p.likes = 0;
                         if (p.pinned === undefined) p.pinned = false;
+                        if (p.status === undefined) p.status = 'published';
+                        if (p.coverImage === undefined) p.coverImage = '';
                     });
                     return posts;
                 } catch (_) {}
@@ -177,6 +179,11 @@
 
         let currentCategory = '全部';
         let currentSearch = '';
+        let currentSort = 'newest';
+        let showDraftsOnly = false;
+        let galleryMediaFilter = 'all';
+        let mediaViewerList = [];
+        let mediaViewerIndex = 0;
 
         function getAllCategories(posts) {
             const cats = new Set();
@@ -191,6 +198,12 @@
 
         function filterPosts(posts, category, keyword) {
             let list = posts;
+            // 草稿箱模式 or 默认隐藏草稿
+            if (showDraftsOnly) {
+                list = list.filter(p => p.status === 'draft');
+            } else {
+                list = list.filter(p => p.status !== 'draft');
+            }
             if (category && category !== '全部') {
                 list = list.filter(p => p.category === category);
             }
@@ -201,14 +214,19 @@
                         p.title || '',
                         p.category || '',
                         p.summary || '',
-                        // 去掉 HTML 标签再搜正文
                         (p.content || '').replace(/<[^>]+>/g, ' ')
                     ].join(' ').toLowerCase();
                     return text.includes(k);
                 });
             }
-            // 置顶优先
-            list = [...list].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.id - a.id));
+            list = [...list];
+            if (currentSort === 'likes') {
+                list.sort((a, b) => (b.likes || 0) - (a.likes || 0) || (b.id - a.id));
+            } else if (currentSort === 'views') {
+                list.sort((a, b) => (b.views || 0) - (a.views || 0) || (b.id - a.id));
+            } else {
+                list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.id - a.id));
+            }
             return list;
         }
 
@@ -230,12 +248,18 @@
                 const views = p.views || 0;
                 const typeLabel = p.type === 'news' ? '📰 新闻' : '📝 文章';
                 const typeClass = p.type === 'news' ? 'news' : 'article';
+                const coverStyle = p.coverImage
+                    ? `style="background-image:url('${p.coverImage.replace(/'/g, "\'")}');"`
+                    : '';
+                const coverClass = p.coverImage ? `cover color-${p.coverColor || 'teal'} has-image` : `cover color-${p.coverColor || 'teal'}`;
+                const draftBadge = p.status === 'draft' ? '<span class="draft-badge">草稿</span>' : '';
                 html += `
                     <article class="post" data-id="${p.id}">
                         <div class="click-area" onclick="openDetail(${p.id})">
-                            <div class="cover color-${p.coverColor}">${coverText}</div>
+                            <div class="${coverClass}" ${coverStyle}>${coverText}</div>
                             <div class="body">
                                 <div class="kick">
+                                    ${draftBadge}
                                     <span class="type-badge ${typeClass}">${typeLabel}</span>
                                     # ${p.category}
                                 </div>
@@ -259,6 +283,7 @@
                                 <button class="pin-btn ${p.pinned ? 'pinned' : ''}" onclick="togglePin(${p.id}, event)" title="${p.pinned ? '取消置顶' : '置顶'}">
                                     ${p.pinned ? '📌' : '📍'}
                                 </button>
+                                <button class="edit-btn" onclick="editPost(${p.id}, event)" title="编辑">✏️</button>
                                 <button class="delete-btn" onclick="deletePost(${p.id})" title="删除文章">🗑️</button>
                             </div>
                         </div>
@@ -287,6 +312,33 @@
                 `;
             });
             container.innerHTML = html;
+        }
+
+        function renderHot() {
+            const container = document.getElementById('hot-posts');
+            if (!container) return;
+            const posts = getPosts().filter(p => p.status !== 'draft');
+            const hot = [...posts].sort((a, b) => {
+                const sa = (a.likes || 0) * 3 + (a.views || 0);
+                const sb = (b.likes || 0) * 3 + (b.views || 0);
+                return sb - sa;
+            }).slice(0, 5);
+            if (!hot.length) {
+                container.innerHTML = '<p style="font-size:12px;color:var(--ink-faint);">暂无文章</p>';
+                return;
+            }
+            container.innerHTML = hot.map((p, idx) => `
+                <div class="postmini" style="cursor:pointer" onclick="openDetail(${p.id})">
+                    <div class="thumb ${idx % 2 ? 'b' : ''}"></div>
+                    <p>❤️${p.likes || 0} · 👁️${p.views || 0}<br/>${p.title}</p>
+                </div>
+            `).join('');
+        }
+
+        function updateDraftCount() {
+            const n = getPosts().filter(p => p.status === 'draft').length;
+            const el = document.getElementById('draftCount');
+            if (el) el.textContent = n;
         }
 
         function renderPillbar(posts, activeCategory) {
@@ -348,6 +400,8 @@
             const posts = getPosts();
             renderGrid(posts, currentCategory, currentSearch);
             renderRecent(posts);
+            renderHot();
+            updateDraftCount();
             renderPillbar(posts, currentCategory);
             renderMenuCategories(posts, currentCategory);
             document.getElementById('total-articles').textContent = posts.length;
@@ -371,6 +425,7 @@
             const posts = getPosts();
             const post = posts.find(p => p.id === id);
             if (!post) return;
+            window._currentDetailId = id;
             // 增加阅读量
             incrementViews(id);
             // 更新视图中的阅读量
@@ -534,25 +589,93 @@
         });
 
         // 打开/关闭发布模态框
-        document.getElementById('openPublishBtn').addEventListener('click', function() {
-            publishModal.classList.add('active');
-            document.getElementById('postTitle').focus();
-            editorContent.innerHTML = '';
-        });
-        document.getElementById('closePublishBtn').addEventListener('click', function() {
-            publishModal.classList.remove('active');
+        function resetPublishForm() {
             document.getElementById('publishForm').reset();
             editorContent.innerHTML = '';
+            document.getElementById('editPostId').value = '';
+            document.getElementById('coverImageData').value = '';
+            document.getElementById('coverPreview').style.display = 'none';
+            document.getElementById('saveAsDraft').checked = false;
+            document.getElementById('publishModalTitle').textContent = '✏️ 发布新内容';
+            document.getElementById('publishSubmitBtn').textContent = '发布';
+            document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === 'article'));
+            selectedType = 'article';
+            const teal = document.querySelector('input[name="coverColor"][value="teal"]');
+            if (teal) teal.checked = true;
+        }
+
+        function openPublishModal() {
+            resetPublishForm();
+            publishModal.classList.add('active');
+            document.getElementById('postTitle').focus();
+        }
+
+        window.editPost = function(id, ev) {
+            if (ev) ev.stopPropagation();
+            const post = getPosts().find(p => p.id === id);
+            if (!post) return;
+            publishModal.classList.add('active');
+            document.getElementById('editPostId').value = String(post.id);
+            document.getElementById('postTitle').value = post.title || '';
+            document.getElementById('postCategory').value = post.category || '';
+            document.getElementById('postSummary').value = post.summary || '';
+            editorContent.innerHTML = post.content || '';
+            document.getElementById('saveAsDraft').checked = post.status === 'draft';
+            selectedType = post.type || 'article';
+            document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === selectedType));
+            const color = post.coverColor || 'teal';
+            const radio = document.querySelector('input[name="coverColor"][value="' + color + '"]');
+            if (radio) radio.checked = true;
+            if (post.coverImage) {
+                document.getElementById('coverImageData').value = post.coverImage;
+                document.getElementById('coverPreviewImg').src = post.coverImage;
+                document.getElementById('coverPreview').style.display = 'block';
+            } else {
+                document.getElementById('coverImageData').value = '';
+                document.getElementById('coverPreview').style.display = 'none';
+            }
+            document.getElementById('publishModalTitle').textContent = '✏️ 编辑文章';
+            document.getElementById('publishSubmitBtn').textContent = '保存';
+            document.getElementById('detailModal')?.classList.remove('active');
+            document.body.style.overflow = 'hidden';
+        };
+
+        document.getElementById('openPublishBtn').addEventListener('click', openPublishModal);
+        document.getElementById('closePublishBtn').addEventListener('click', function() {
+            publishModal.classList.remove('active');
+            resetPublishForm();
+            document.body.style.overflow = '';
         });
         publishModal.addEventListener('click', function(e) {
             if (e.target === this) {
                 this.classList.remove('active');
-                document.getElementById('publishForm').reset();
-                editorContent.innerHTML = '';
+                resetPublishForm();
+                document.body.style.overflow = '';
             }
         });
 
-        // 提交发布
+        document.getElementById('coverInput')?.addEventListener('change', function(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+            if (file.size > 2 * 1024 * 1024) {
+                alert('封面图请小于 2MB');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('coverImageData').value = ev.target.result;
+                document.getElementById('coverPreviewImg').src = ev.target.result;
+                document.getElementById('coverPreview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        });
+        document.getElementById('clearCoverBtn')?.addEventListener('click', function() {
+            document.getElementById('coverImageData').value = '';
+            document.getElementById('coverInput').value = '';
+            document.getElementById('coverPreview').style.display = 'none';
+        });
+
+        // 提交发布 / 保存编辑
         document.getElementById('publishForm').addEventListener('submit', function(e) {
             e.preventDefault();
             const title = document.getElementById('postTitle').value.trim();
@@ -561,35 +684,63 @@
             const content = editorContent.innerHTML.trim();
             const colorRadio = document.querySelector('input[name="coverColor"]:checked');
             const coverColor = colorRadio ? colorRadio.value : 'teal';
+            const coverImage = document.getElementById('coverImageData').value || '';
+            const isDraft = document.getElementById('saveAsDraft').checked;
+            const editId = document.getElementById('editPostId').value;
 
             if (!title || !category) { alert('请填写标题和分类'); return; }
             if (!content) { alert('请填写正文内容'); return; }
 
             const posts = getPosts();
-            posts.push({
-                id: genId(),
-                title,
-                category,
-                summary: summary || '',
-                coverColor,
-                date: new Date().toISOString().slice(0, 10),
-                comments: 0,
-                views: 0,
-                likes: 0,
-                pinned: false,
-                type: selectedType,
-                content: content
-            });
-            savePosts(posts);
-            if (currentCategory === '全部' || currentCategory === category) {
-                renderAll();
+            if (editId) {
+                const post = posts.find(p => String(p.id) === String(editId));
+                if (post) {
+                    post.title = title;
+                    post.category = category;
+                    post.summary = summary || '';
+                    post.coverColor = coverColor;
+                    post.coverImage = coverImage;
+                    post.type = selectedType;
+                    post.content = content;
+                    post.status = isDraft ? 'draft' : 'published';
+                    post.date = post.date || new Date().toISOString().slice(0, 10);
+                }
             } else {
-                renderAll();
+                posts.push({
+                    id: genId(),
+                    title,
+                    category,
+                    summary: summary || '',
+                    coverColor,
+                    coverImage,
+                    date: new Date().toISOString().slice(0, 10),
+                    comments: 0,
+                    views: 0,
+                    likes: 0,
+                    pinned: false,
+                    type: selectedType,
+                    content: content,
+                    status: isDraft ? 'draft' : 'published'
+                });
             }
+            savePosts(posts);
+            renderAll();
             publishModal.classList.remove('active');
-            document.getElementById('publishForm').reset();
-            editorContent.innerHTML = '';
-            document.getElementById('post-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            resetPublishForm();
+            document.body.style.overflow = '';
+            if (!isDraft) {
+                document.getElementById('post-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                alert('已保存到草稿箱');
+            }
+        });
+
+        document.getElementById('editFromDetailBtn')?.addEventListener('click', function() {
+            const title = document.getElementById('detailTitle')?.textContent;
+            const posts = getPosts();
+            const post = posts.find(p => p.title === title);
+            // better: store current detail id
+            if (window._currentDetailId) editPost(window._currentDetailId);
         });
 
         // ============================================================
@@ -640,9 +791,12 @@
 
         function renderGallery() {
             const container = document.getElementById('gallery-grid');
-            const images = getImages();
+            let images = getImages();
+            if (galleryMediaFilter && galleryMediaFilter !== 'all') {
+                images = images.filter(img => (img.type || 'image') === galleryMediaFilter);
+            }
             if (images.length === 0) {
-                container.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">暂无内容，可上传图片/视频，或嵌入 B 站视频</p>`;
+                container.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:40px 0;">该筛选下暂无内容</p>`;
                 return;
             }
             let html = '';
@@ -688,7 +842,14 @@
         let currentMediaEl = null;
 
         function openMediaViewer(id) {
-            const item = getImages().find(i => i.id === id);
+            let all = getImages();
+            if (galleryMediaFilter && galleryMediaFilter !== 'all') {
+                all = all.filter(i => (i.type || 'image') === galleryMediaFilter);
+            }
+            mediaViewerList = all;
+            mediaViewerIndex = all.findIndex(i => i.id === id);
+            if (mediaViewerIndex < 0) mediaViewerIndex = 0;
+            const item = all.find(i => i.id === id) || getImages().find(i => i.id === id);
             if (!item) return;
             const modal = document.getElementById('mediaModal');
             const body = document.getElementById('mediaModalBody');
@@ -741,6 +902,16 @@
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
+
+
+        function navigateMedia(delta) {
+            if (!mediaViewerList.length) return;
+            mediaViewerIndex = (mediaViewerIndex + delta + mediaViewerList.length) % mediaViewerList.length;
+            const item = mediaViewerList[mediaViewerIndex];
+            if (item) openMediaViewer(item.id);
+        }
+        document.getElementById('mediaPrevBtn')?.addEventListener('click', () => navigateMedia(-1));
+        document.getElementById('mediaNextBtn')?.addEventListener('click', () => navigateMedia(1));
 
         function closeMediaViewer() {
             const modal = document.getElementById('mediaModal');
@@ -1825,7 +1996,9 @@
                 profile: getProfile(),
                 music: getMusicData(),
                 tieba: getTieba(),
-                groups: getGroups()
+                groups: getGroups(),
+                friendLinks: getFriendLinks(),
+                announce: localStorage.getItem('ZIH_announce')
             };
             const json = JSON.stringify(data, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
@@ -1873,6 +2046,8 @@
                     if (data.music) saveMusicData(data.music);
                     if (data.tieba) saveTieba(data.tieba);
                     if (data.groups) saveGroups(data.groups);
+                    if (data.friendLinks) saveFriendLinks(data.friendLinks);
+                    if (data.announce) localStorage.setItem('ZIH_announce', typeof data.announce === 'string' ? data.announce : JSON.stringify(data.announce));
                     renderProfile();
                     renderAll();
                     renderGallery();
@@ -1960,16 +2135,19 @@
             gallery.classList.remove('active');
             personal.classList.remove('active');
             about.classList.remove('active');
+            document.getElementById('links')?.classList.remove('active');
             if (tabId === 'blog') blogContent.classList.add('active');
             else if (tabId === 'gallery') gallery.classList.add('active');
             else if (tabId === 'personal') personal.classList.add('active');
             else if (tabId === 'about') about.classList.add('active');
+            else if (tabId === 'links') document.getElementById('links')?.classList.add('active');
             navLinks.forEach(link => { link.classList.toggle('active', link.dataset.tab === tabId); });
             iconSearch.classList.toggle('active-icon', tabId === 'blog');
             iconGrid.classList.toggle('active-icon', tabId === 'gallery');
             if (tabId === 'gallery') renderGallery();
             if (tabId === 'personal') { renderComments(); renderTieba(); renderGroups(); }
             if (tabId === 'about') renderContacts();
+            if (tabId === 'links') renderFriendLinks();
             if (fromIcon) {
                 if (tabId === 'blog') { iconSearch.classList.remove('pulse');
                     void iconSearch.offsetWidth;
@@ -3007,6 +3185,154 @@
         document.querySelectorAll('#blog-content, #gallery, #personal, #about').forEach(el => {
             if (el) navSync.observe(el, { attributes: true, attributeFilter: ['class'] });
         });
+
+
+        // 预览筛选
+        document.querySelectorAll('#galleryFilters .pill').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#galleryFilters .pill').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                galleryMediaFilter = this.dataset.media || 'all';
+                renderGallery();
+            });
+        });
+
+        // 排序 / 草稿箱 / 热门
+        document.getElementById('sortSelect')?.addEventListener('change', function() {
+            currentSort = this.value || 'newest';
+            renderAll();
+        });
+        document.getElementById('draftBoxBtn')?.addEventListener('click', function() {
+            showDraftsOnly = !showDraftsOnly;
+            this.classList.toggle('active', showDraftsOnly);
+            currentCategory = '全部';
+            renderAll();
+            if (showDraftsOnly) alert('当前为草稿箱视图，再次点击按钮返回全部文章');
+        });
+        document.getElementById('hotListBtn')?.addEventListener('click', function() {
+            currentSort = 'likes';
+            showDraftsOnly = false;
+            const sel = document.getElementById('sortSelect');
+            if (sel) sel.value = 'likes';
+            document.getElementById('draftBoxBtn')?.classList.remove('active');
+            renderAll();
+            document.getElementById('post-grid')?.scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // 留言表情
+        document.querySelectorAll('#emojiRow .emoji-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const ta = document.getElementById('commentContent');
+                if (!ta) return;
+                const start = ta.selectionStart || ta.value.length;
+                const end = ta.selectionEnd || ta.value.length;
+                const emoji = this.textContent;
+                ta.value = ta.value.slice(0, start) + emoji + ta.value.slice(end);
+                ta.focus();
+                ta.selectionStart = ta.selectionEnd = start + emoji.length;
+            });
+        });
+
+        // 公告条
+        const ANNOUNCE_KEY = 'ZIH_announce';
+        (function initAnnounce() {
+            const bar = document.getElementById('announceBar');
+            const text = document.getElementById('announceText');
+            const editBtn = document.getElementById('announceEditBtn');
+            const closeBtn = document.getElementById('announceCloseBtn');
+            if (!bar || !text) return;
+            try {
+                const saved = JSON.parse(localStorage.getItem(ANNOUNCE_KEY) || '{}');
+                if (saved.hidden) bar.classList.add('hidden');
+                if (saved.text) text.textContent = saved.text;
+            } catch (_) {}
+            editBtn?.addEventListener('click', function() {
+                const editing = text.getAttribute('contenteditable') === 'true';
+                if (editing) {
+                    text.setAttribute('contenteditable', 'false');
+                    localStorage.setItem(ANNOUNCE_KEY, JSON.stringify({
+                        text: text.textContent.trim(),
+                        hidden: bar.classList.contains('hidden')
+                    }));
+                    editBtn.textContent = '✏️';
+                } else {
+                    text.setAttribute('contenteditable', 'true');
+                    text.focus();
+                    editBtn.textContent = '💾';
+                }
+            });
+            closeBtn?.addEventListener('click', function() {
+                bar.classList.add('hidden');
+                let saved = {};
+                try { saved = JSON.parse(localStorage.getItem(ANNOUNCE_KEY) || '{}'); } catch (_) {}
+                saved.hidden = true;
+                saved.text = text.textContent.trim();
+                localStorage.setItem(ANNOUNCE_KEY, JSON.stringify(saved));
+            });
+        })();
+
+        // 友链
+        const LINKS_KEY = 'ZIH_friend_links';
+        const defaultLinks = [
+            { id: 1, name: 'GitHub', url: 'https://github.com', desc: '代码托管' }
+        ];
+        function getFriendLinks() {
+            const s = localStorage.getItem(LINKS_KEY);
+            if (s) { try { return JSON.parse(s); } catch (_) {} }
+            localStorage.setItem(LINKS_KEY, JSON.stringify(defaultLinks));
+            return defaultLinks.slice();
+        }
+        function saveFriendLinks(list) { localStorage.setItem(LINKS_KEY, JSON.stringify(list)); }
+        function renderFriendLinks() {
+            const box = document.getElementById('links-grid');
+            if (!box) return;
+            const list = getFriendLinks();
+            if (!list.length) {
+                box.innerHTML = '<p class="community-empty">暂无友链，点击添加</p>';
+                return;
+            }
+            box.innerHTML = list.map(item => `
+                <a class="community-card" href="${item.url}" target="_blank" rel="noopener noreferrer">
+                    <span class="c-icon">🔗</span>
+                    <span class="c-name">${item.name}</span>
+                    <span class="c-type">友链</span>
+                    ${item.desc ? `<span class="c-desc">${item.desc}</span>` : ''}
+                    <button type="button" class="c-del" title="删除" onclick="event.preventDefault();event.stopPropagation();deleteFriendLink(${item.id})">🗑️</button>
+                </a>
+            `).join('');
+        }
+        window.deleteFriendLink = function(id) {
+            if (!confirm('删除该友链？')) return;
+            saveFriendLinks(getFriendLinks().filter(i => i.id !== id));
+            renderFriendLinks();
+        };
+        document.getElementById('addLinkBtn')?.addEventListener('click', () => {
+            document.getElementById('linkModal')?.classList.add('active');
+        });
+        document.getElementById('closeLinkBtn')?.addEventListener('click', () => {
+            document.getElementById('linkModal')?.classList.remove('active');
+            document.getElementById('linkForm')?.reset();
+        });
+        document.getElementById('linkModal')?.addEventListener('click', e => {
+            if (e.target.id === 'linkModal') {
+                e.target.classList.remove('active');
+                document.getElementById('linkForm')?.reset();
+            }
+        });
+        document.getElementById('linkForm')?.addEventListener('submit', e => {
+            e.preventDefault();
+            const name = document.getElementById('linkName').value.trim();
+            const url = document.getElementById('linkUrl').value.trim();
+            const desc = document.getElementById('linkDesc').value.trim();
+            if (!name || !url) return;
+            const list = getFriendLinks();
+            list.push({ id: Date.now(), name, url, desc });
+            saveFriendLinks(list);
+            renderFriendLinks();
+            document.getElementById('linkModal')?.classList.remove('active');
+            document.getElementById('linkForm')?.reset();
+        });
+        renderFriendLinks();
 
         console.log('🚀 博客小栈已加载！');
         console.log('📝 支持写文章和新闻，富文本编辑器可插入图片、链接、列表等。');

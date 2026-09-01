@@ -38,6 +38,7 @@
             <a href="#" data-tab="gallery">预览</a>
             <a href="#" data-tab="personal">个人</a>
             <a href="#" data-tab="about">关于</a>
+            <a href="#" data-tab="links">友链</a>
         </nav>
         <div class="topicons">
             <svg id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="button" aria-label="搜索文章" title="点击查看文章">
@@ -52,6 +53,14 @@
             </svg>
         </div>
     </header>
+
+    <!-- 公告条 -->
+    <div class="announce-bar" id="announceBar">
+        <span class="announce-icon">📢</span>
+        <span class="announce-text" id="announceText" contenteditable="false">欢迎来到博客小栈 · 点击右侧编辑公告</span>
+        <button type="button" class="announce-edit" id="announceEditBtn" title="编辑公告">✏️</button>
+        <button type="button" class="announce-close" id="announceCloseBtn" title="关闭">✕</button>
+    </div>
 
     <!-- ===== 分类侧滑菜单 ===== -->
     <div class="menu-overlay" id="menuOverlay"></div>
@@ -113,6 +122,10 @@
                     </div>
                 </div>
 
+                <div class="card sidebox">
+                    <h4>🔥 热门文章</h4>
+                    <div id="hot-posts"></div>
+                </div>
                 <div class="card sidebox">
                     <h4>📌 最近发布</h4>
                     <div id="recent-posts"></div>
@@ -244,6 +257,15 @@
                         </svg>
                         发布新内容
                     </button>
+                    <div class="toolbar-right">
+                        <select id="sortSelect" class="sort-select" title="排序">
+                            <option value="newest">最新</option>
+                            <option value="likes">按点赞</option>
+                            <option value="views">按阅读</option>
+                        </select>
+                        <button type="button" class="pill" id="draftBoxBtn">📝 草稿箱 <span id="draftCount">0</span></button>
+                        <button type="button" class="pill" id="hotListBtn">🔥 热门</button>
+                    </div>
                     <div class="pillbar" id="pillbar"></div>
                 </div>
 
@@ -284,6 +306,12 @@
                             </button>
                         </div>
                     </div>
+                </div>
+                <div class="gallery-filters" id="galleryFilters">
+                    <button type="button" class="pill active" data-media="all">全部</button>
+                    <button type="button" class="pill" data-media="image">仅图片</button>
+                    <button type="button" class="pill" data-media="video">仅视频</button>
+                    <button type="button" class="pill" data-media="bilibili">仅 B 站</button>
                 </div>
                 <div class="gallery-grid" id="gallery-grid"></div>
             </div>
@@ -336,11 +364,34 @@
                     <div class="row">
                         <textarea id="commentContent" placeholder="想说什么呢？" required></textarea>
                     </div>
+                    <div class="emoji-row" id="emojiRow">
+                        <button type="button" class="emoji-btn">😀</button>
+                        <button type="button" class="emoji-btn">😂</button>
+                        <button type="button" class="emoji-btn">🥰</button>
+                        <button type="button" class="emoji-btn">👍</button>
+                        <button type="button" class="emoji-btn">🔥</button>
+                        <button type="button" class="emoji-btn">🎉</button>
+                        <button type="button" class="emoji-btn">💡</button>
+                        <button type="button" class="emoji-btn">🙏</button>
+                        <button type="button" class="emoji-btn">❤️</button>
+                        <button type="button" class="emoji-btn">🚀</button>
+                    </div>
                     <div class="actions">
                         <button class="btn-submit-comment" id="submitCommentBtn">发表评论</button>
                     </div>
                 </div>
                 <div class="grid" id="comment-grid"></div>
+            </div>
+
+            <div id="links">
+                <div class="about-header">
+                    <div>
+                        <h2>🔗 友情链接</h2>
+                        <p style="color:var(--ink-soft);font-size:14px;">交换友链，发现更多有趣的站点</p>
+                    </div>
+                    <button class="btn-add-contact" id="addLinkBtn" type="button">➕ 添加友链</button>
+                </div>
+                <div class="community-grid" id="links-grid"></div>
             </div>
 
             <div id="about">
@@ -360,9 +411,10 @@
     <!-- ===== 发布模态框（增强版） ===== -->
     <div class="modal-overlay" id="publishModal">
         <div class="modal">
-            <h2>✏️ 发布新内容</h2>
-            <p class="sub">支持写文章、新闻，富文本编辑，插入图片</p>
+            <h2 id="publishModalTitle">✏️ 发布新内容</h2>
+            <p class="sub">支持写文章、新闻，富文本编辑，封面图，草稿</p>
             <form id="publishForm">
+                <input type="hidden" id="editPostId" value="" />
                 <!-- 类型切换 -->
                 <label>内容类型</label>
                 <div class="type-toggle">
@@ -378,6 +430,18 @@
 
                 <label>摘要（选填）</label>
                 <textarea id="postSummary" placeholder="简短描述内容"></textarea>
+
+                <label>封面图（选填）</label>
+                <div class="cover-upload-row">
+                    <input type="file" id="coverInput" accept="image/*" />
+                    <button type="button" class="btn-cancel" id="clearCoverBtn">清除封面</button>
+                </div>
+                <div class="cover-preview" id="coverPreview" style="display:none;">
+                    <img id="coverPreviewImg" alt="封面预览" />
+                </div>
+                <input type="hidden" id="coverImageData" value="" />
+
+                <label class="draft-label"><input type="checkbox" id="saveAsDraft" /> 保存为草稿（不公开在列表主视图，可在草稿箱查看）</label>
 
                 <label>正文内容 <span class="required">*</span></label>
                 <div class="editor-toolbar" id="editorToolbar">
@@ -415,7 +479,7 @@
 
                 <div class="actions">
                     <button type="button" class="btn-cancel" id="closePublishBtn">取消</button>
-                    <button type="submit" class="btn-submit">发布</button>
+                    <button type="submit" class="btn-submit" id="publishSubmitBtn">发布</button>
                 </div>
             </form>
         </div>
@@ -439,7 +503,8 @@
             <div class="detail-content" id="detailContent">
                 内容加载中...
             </div>
-            <div class="actions" style="margin-top:16px;justify-content:flex-end;display:flex;">
+            <div class="actions" style="margin-top:16px;justify-content:flex-end;display:flex;gap:10px;">
+                <button type="button" class="btn-submit" id="editFromDetailBtn">✏️ 编辑</button>
                 <button class="btn-cancel" id="closeDetailBtn2">关闭</button>
             </div>
         </div>
@@ -460,6 +525,26 @@
                 <input type="text" id="contactLabel" placeholder="例如：微信、抖音" required />
                 <div class="actions">
                     <button type="button" class="btn-cancel" id="closeAddContactBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 添加友链 ===== -->
+    <div class="modal-overlay" id="linkModal">
+        <div class="modal">
+            <h2>🔗 添加友链</h2>
+            <p class="sub">填写站点名称与网址</p>
+            <form id="linkForm">
+                <label>名称 <span class="required">*</span></label>
+                <input type="text" id="linkName" placeholder="站点名称" required />
+                <label>网址 <span class="required">*</span></label>
+                <input type="url" id="linkUrl" placeholder="https://" required />
+                <label>简介（选填）</label>
+                <input type="text" id="linkDesc" placeholder="一句话介绍" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeLinkBtn">取消</button>
                     <button type="submit" class="btn-submit">添加</button>
                 </div>
             </form>
@@ -542,6 +627,10 @@
                     <button type="button" class="close-btn" id="closeMediaBtn" style="font-size:22px;background:none;border:none;color:var(--ink-faint);cursor:pointer;">✕</button>
                 </div>
             </div>
+            <div class="media-nav-row">
+                <button type="button" class="media-nav-btn" id="mediaPrevBtn">‹ 上一张</button>
+                <button type="button" class="media-nav-btn" id="mediaNextBtn">下一张 ›</button>
+            </div>
             <div class="media-modal-body" id="mediaModalBody">
                 <!-- 动态插入 img 或 video -->
             </div>
@@ -606,6 +695,10 @@
         <button type="button" class="bnav-item" data-tab="about" aria-label="关于">
             <span class="bnav-icon">📇</span>
             <span class="bnav-label">关于</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="links" aria-label="友链">
+            <span class="bnav-icon">🔗</span>
+            <span class="bnav-label">友链</span>
         </button>
     </nav>
 
