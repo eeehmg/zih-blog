@@ -1003,7 +1003,7 @@
             mediaViewerList = all;
             mediaViewerIndex = all.findIndex(i => i.id === id);
             if (mediaViewerIndex < 0) mediaViewerIndex = 0;
-            const item = all.find(i => i.id === id) || getImages().find(i => i.id === id);
+            let item = all.find(i => i.id === id) || getImages().find(i => i.id === id);
             if (!item) return;
             if (item.localFile) {
                 const localUrl = await getLocalFileUrl(item);
