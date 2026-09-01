@@ -1012,9 +1012,9 @@
         window.scanLocalCloudMedia = scanLocalCloudMedia;
 
         async function hydrateLocalGalleryMedia() {
-            // 图片也按需读取；视频绝不在列表阶段读取完整文件。
-            const nodes = document.querySelectorAll('.gallery-item[data-type="image"]');
-            for (const node of nodes) {
+            // 图片按需读取；本地视频只读取少量数据生成缩略图，不把整段视频读入内存。
+            const imageNodes = document.querySelectorAll('.gallery-item[data-type="image"]');
+            for (const node of imageNodes) {
                 const id = Number(node.dataset.id);
                 const item = getImages().find(i => i.id === id);
                 if (!item || !item.localFile) continue;
@@ -1022,6 +1022,70 @@
                 const media = node.querySelector('img');
                 if (media && url) media.src = url;
             }
+
+            const videoNodes = document.querySelectorAll('.gallery-item[data-type="video"]');
+            for (const node of videoNodes) {
+                const id = Number(node.dataset.id);
+                const item = getImages().find(i => i.id === id);
+                if (!item || !item.localFile) continue;
+                const thumb = node.querySelector('.local-video-thumb');
+                if (!thumb) continue;
+                try {
+                    const url = await getLocalFileUrl(item);
+                    if (!url) throw new Error('no url');
+                    await createLocalVideoThumbnail(url, thumb);
+                    URL.revokeObjectURL(url);
+                } catch (e) {
+                    thumb.classList.remove('local-video-thumb-loading');
+                    thumb.classList.add('local-video-thumb-fallback');
+                    const text = thumb.querySelector('.local-video-thumb-text');
+                    if (text) text.textContent = '点击播放视频';
+                }
+            }
+        }
+
+        function createLocalVideoThumbnail(url, container) {
+            return new Promise((resolve, reject) => {
+                const v = document.createElement('video');
+                v.muted = true;
+                v.playsInline = true;
+                v.preload = 'metadata';
+                let done = false;
+                const finish = (ok) => {
+                    if (done) return;
+                    done = true;
+                    v.removeAttribute('src');
+                    v.load();
+                    ok ? resolve() : reject(new Error('thumbnail failed'));
+                };
+                v.onerror = () => finish(false);
+                v.onloadedmetadata = () => {
+                    const target = Number.isFinite(v.duration) ? Math.min(Math.max(v.duration * 0.08, 0.15), 1.5) : 0.5;
+                    try { v.currentTime = target; } catch (_) { v.onloadeddata(); }
+                };
+                v.onloadeddata = () => {
+                    try {
+                        const w = 640, h = 360;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(v, 0, 0, w, h);
+                        const data = canvas.toDataURL('image/jpeg', 0.82);
+                        const bg = container.querySelector('.local-video-thumb-bg');
+                        if (bg) {
+                            bg.style.backgroundImage = `url("${data}")`;
+                            bg.classList.add('has-thumb');
+                        }
+                        const text = container.querySelector('.local-video-thumb-text');
+                        if (text) text.textContent = '点击播放';
+                        container.classList.remove('local-video-thumb-loading');
+                        container.classList.add('local-video-thumb-ready');
+                        finish(true);
+                    } catch (_) { finish(false); }
+                };
+                v.src = url;
+                v.load();
+            });
         }
 
         function renderGallery() {
@@ -1059,8 +1123,12 @@
                 } else if (t === 'video') {
                     const src = img.localFile ? '' : (img.url || '');
                     const sizeText = img.size ? formatFileSize(img.size) : '';
-                    mediaHtml = `<video src="${src}" preload="none" playsinline muted></video>
-                       <span class="media-badge video">🎬 视频</span>${img.localFile ? '<span class="gallery-local-badge">💻 本地云盘</span>' : ''}${sizeText ? `<span class="media-size-badge">${sizeText}</span>` : ''}`;
+                    if (img.localFile) {
+                        mediaHtml = `<div class="local-video-thumb local-video-thumb-loading"><div class="local-video-thumb-bg"></div><div class="local-video-thumb-center"><span class="local-video-play">▶</span><span class="local-video-thumb-text">正在生成封面…</span></div></div>`;
+                    } else {
+                        mediaHtml = `<video src="${src}" preload="metadata" playsinline muted></video><div class="local-video-overlay"><span class="local-video-play">▶</span></div>`;
+                    }
+                    mediaHtml += `<span class="media-badge video">🎬 视频</span>${img.localFile ? '<span class="gallery-local-badge">💻 本地云盘</span>' : ''}${sizeText ? `<span class="media-size-badge">${sizeText}</span>` : ''}`;
                     footHint = '点击播放';
                 } else {
                     const src = img.localFile ? '' : (img.url || '');
@@ -1070,13 +1138,13 @@
                 html += `
                     <div class="gallery-item" data-id="${img.id}" data-type="${t}" onclick="openMediaViewer(${img.id})">
                         ${mediaHtml}
+                        <button type="button" class="gallery-delete-btn" onclick="event.preventDefault();event.stopPropagation();deleteImage(${img.id})" title="删除${t === 'video' ? '视频' : '内容'}" aria-label="删除">🗑️</button>
                         <div class="caption">
                             <strong>${img.title || (t === 'bilibili' ? (img.bvid || 'B站视频') : t === 'cloud' ? (img.pan || '云盘链接') : t === 'video' ? '未命名视频' : '未命名图片')}</strong>
                             ${img.desc ? img.desc : ''}
                         </div>
                         <div class="foot">
                             <span style="font-size:11px;color:var(--ink-faint);">${footHint}</span>
-                            <button class="delete-btn" onclick="event.stopPropagation();deleteImage(${img.id})" title="删除">🗑️</button>
                         </div>
                     </div>
                 `;
