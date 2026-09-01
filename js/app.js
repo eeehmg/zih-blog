@@ -762,7 +762,8 @@
         ];
 
         // 单个文件建议不超过 4MB（localStorage 总容量约 5~10MB）
-        const MAX_MEDIA_SIZE = 4 * 1024 * 1024;
+        const MAX_MEDIA_SIZE = 4 * 1024 * 1024; // 非本地云盘的 localStorage 兜底上限
+        const LOCAL_VIDEO_URLS = new Map();
 
         function getImages() {
             const stored = localStorage.getItem(IMAGE_KEY);
@@ -919,16 +920,42 @@
                 return url;
             } catch (_) { return null; }
         }
+        // 本地云盘视频采用“按需加载”：列表阶段不读取视频文件，点击后才创建 Blob URL，避免多个大视频同时占用内存。
+        async function getLocalFile(item) {
+            if (!localCloudHandle || !item.localFile || !item.fileName) return null;
+            try {
+                if (!(await verifyLocalCloudPermission(localCloudHandle, false))) return null;
+                const fh = await localCloudHandle.getFileHandle(item.fileName);
+                return await fh.getFile();
+            } catch (_) { return null; }
+        }
+
+        async function getLocalFileUrl(item) {
+            if (!item || !item.localFile || !item.fileName) return null;
+            if (LOCAL_VIDEO_URLS.has(item.id)) return LOCAL_VIDEO_URLS.get(item.id);
+            const file = await getLocalFile(item);
+            if (!file) return null;
+            const url = URL.createObjectURL(file);
+            LOCAL_VIDEO_URLS.set(item.id, url);
+            return url;
+        }
+
+        function revokeLocalMediaUrl(id) {
+            const url = LOCAL_VIDEO_URLS.get(id);
+            if (url) { URL.revokeObjectURL(url); LOCAL_VIDEO_URLS.delete(id); }
+        }
+
         async function hydrateLocalGalleryMedia() {
-            const items = getImages().filter(i => i.localFile);
-            for (const item of items) {
+            // 图片可以延迟加载；视频完全按需加载，避免页面打开时同时读取多个大文件。
+            const nodes = document.querySelectorAll('.gallery-item[data-type="image"]');
+            for (const node of nodes) {
+                const id = Number(node.dataset.id);
+                const item = getImages().find(i => i.id === id);
+                if (!item || !item.localFile) continue;
                 const url = await getLocalFileUrl(item);
-                const node = document.querySelector(`.gallery-item[data-id="${item.id}"]`);
-                if (!node || !url) continue;
-                const media = node.querySelector('img, video');
-                if (media) media.src = url;
-                const oldBadge = node.querySelector('.gallery-local-badge');
-                if (!oldBadge) node.insertAdjacentHTML('afterbegin', '<span class="gallery-local-badge">💻 本地云盘</span>');
+                const media = node.querySelector('img');
+                if (media && url) media.src = url;
+                if (!node.querySelector('.gallery-local-badge')) node.insertAdjacentHTML('afterbegin', '<span class="gallery-local-badge">💻 本地云盘</span>');
             }
         }
 
@@ -966,8 +993,9 @@
                     footHint = '点击打开';
                 } else if (t === 'video') {
                     const src = img.localFile ? '' : (img.url || '');
-                    mediaHtml = `<video src="${src}" preload="metadata" playsinline muted></video>
-                       <span class="media-badge video">🎬 视频</span>${img.localFile ? '<span class="gallery-local-badge">💻 本地云盘</span>' : ''}`;
+                    const sizeText = img.size ? formatFileSize(img.size) : '';
+                    mediaHtml = `<video src="${src}" preload="none" playsinline muted></video>
+                       <span class="media-badge video">🎬 视频</span>${img.localFile ? '<span class="gallery-local-badge">💻 本地云盘</span>' : ''}${sizeText ? `<span class="media-size-badge">${sizeText}</span>` : ''}`;
                     footHint = '点击播放';
                 } else {
                     const src = img.localFile ? '' : (img.url || '');
@@ -1064,21 +1092,45 @@
                 if (tip) tip.textContent = 'B 站嵌入播放 · 点「全屏」可尝试全屏（部分浏览器需在播放器内点全屏）';
             } else if (item.type === 'video') {
                 const video = document.createElement('video');
-                video.src = item.url;
                 video.controls = true;
-                video.autoplay = true;
+                video.preload = 'metadata';
                 video.playsInline = true;
                 video.setAttribute('playsinline', '');
+                video.setAttribute('controlsList', 'nodownload');
+                const loading = document.createElement('div');
+                loading.className = 'local-video-loading';
+                loading.textContent = item.localFile ? '正在准备视频…' : '正在加载视频…';
+                body.appendChild(loading);
+                body.appendChild(video);
+
+                const applySource = async () => {
+                    let src = item.url || '';
+                    if (item.localFile) src = await getLocalFileUrl(item);
+                    if (!src) {
+                        loading.textContent = '⚠️ 无法读取本地视频，请重新连接云盘文件夹';
+                        return;
+                    }
+                    video.src = src;
+                    video.load();
+                    loading.remove();
+                    video.play().catch(() => {});
+                };
+                applySource();
+                video.addEventListener('error', () => {
+                    loading.textContent = '⚠️ 浏览器无法播放此视频，可能是编码格式不兼容（推荐 H.264 + AAC）';
+                    if (!loading.isConnected) body.insertBefore(loading, video);
+                });
                 video.addEventListener('click', function(e) {
                     if (e.target === video) {
                         if (video.paused) video.play();
                         else video.pause();
                     }
                 });
-                body.appendChild(video);
                 currentMediaEl = video;
                 if (fsBtn) fsBtn.style.display = 'inline-flex';
-                if (tip) tip.textContent = '点击视频可播放/暂停 · 点「全屏」进入全屏播放';
+                if (tip) tip.textContent = item.localFile
+                    ? `本地云盘 · ${item.size ? formatFileSize(item.size) : '大文件'} · 仅加载当前视频`
+                    : '点击视频可播放/暂停 · 点「全屏」进入全屏播放';
             } else {
                 const img = document.createElement('img');
                 img.src = item.url;
@@ -1160,6 +1212,14 @@
             renderGallery();
         }
 
+        function formatFileSize(bytes) {
+            if (!bytes || !Number.isFinite(bytes)) return '';
+            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let n = bytes, i = 0;
+            while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+            return `${n >= 10 || i === 0 ? n.toFixed(0) : n.toFixed(1)} ${units[i]}`;
+        }
+
         function handleMediaUpload(files, mediaType) {
             if (!files || !files.length) return;
             const images = getImages();
@@ -1170,8 +1230,10 @@
                     ? file.type.startsWith('video/')
                     : file.type.startsWith('image/');
                 if (!okType) continue;
-                if (file.size > MAX_MEDIA_SIZE) {
-                    alert(`「${file.name}」超过 4MB，跳过。\n大文件请放到 assets/gallery/ 后引用，避免撑爆浏览器存储。`);
+                // 已连接本地云盘时不限制大文件；文件只写入本地文件夹，不塞进 localStorage。
+                // 未连接本地云盘时仍限制 4MB，避免浏览器 localStorage 爆满。
+                if (!localCloudHandle && file.size > MAX_MEDIA_SIZE) {
+                    alert(`「${file.name}」超过 4MB。请先连接「☁️ 云盘」文件夹，再上传大视频。`);
                     continue;
                 }
                 validFiles.push(file);
@@ -1188,7 +1250,7 @@
                             images.push({
                                 id: genImageId(), url: '', title: file.name.replace(/\.[^.]+$/, ''),
                                 desc: `来自 ${saved.folderName}`, type: mediaType, localFile: true,
-                                fileName: saved.fileName, folderName: saved.folderName
+                                fileName: saved.fileName, folderName: saved.folderName, size: file.size, mimeType: file.type
                             });
                             loaded++;
                             if (loaded === total) { saveImages(images); renderGallery(); }
@@ -1203,7 +1265,7 @@
                     const reader = new FileReader();
                     reader.onload = function(ev) {
                         const dataUrl = ev.target.result;
-                        images.push({ id: genImageId(), url: dataUrl, title: file.name.replace(/\.[^.]+$/, ''), desc: '', type: mediaType });
+                        images.push({ id: genImageId(), url: dataUrl, title: file.name.replace(/\.[^.]+$/, ''), desc: '', type: mediaType, size: file.size, mimeType: file.type });
                         loaded++;
                         if (loaded === total) { try { saveImages(images); renderGallery(); } catch (_) {} }
                     };
