@@ -802,6 +802,7 @@
         // ----- 本地云盘：File System Access API + IndexedDB -----
         const LOCAL_CLOUD_DB = 'ZIH_LocalCloudDB';
         const LOCAL_CLOUD_STORE = 'handles';
+        const LOCAL_CLOUD_FILES_STORE = 'fileHandles';
         const LOCAL_CLOUD_KEY = 'directory';
         let localCloudHandle = null;
         const localObjectUrls = new Map();
@@ -809,8 +810,12 @@
         function openLocalCloudDB() {
             return new Promise((resolve, reject) => {
                 if (!('indexedDB' in window)) return reject(new Error('IndexedDB 不可用'));
-                const req = indexedDB.open(LOCAL_CLOUD_DB, 1);
-                req.onupgradeneeded = () => req.result.createObjectStore(LOCAL_CLOUD_STORE);
+                const req = indexedDB.open(LOCAL_CLOUD_DB, 2);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(LOCAL_CLOUD_STORE)) db.createObjectStore(LOCAL_CLOUD_STORE);
+                    if (!db.objectStoreNames.contains(LOCAL_CLOUD_FILES_STORE)) db.createObjectStore(LOCAL_CLOUD_FILES_STORE);
+                };
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => reject(req.error || new Error('数据库打开失败'));
             });
@@ -837,6 +842,43 @@
                 return handle;
             } catch (_) { return null; }
         }
+        async function saveLocalFileHandle(id, handle) {
+            if (!id || !handle) return;
+            const db = await openLocalCloudDB();
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction(LOCAL_CLOUD_FILES_STORE, 'readwrite');
+                tx.objectStore(LOCAL_CLOUD_FILES_STORE).put(handle, String(id));
+                tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+            });
+            db.close();
+        }
+        async function loadLocalFileHandle(id) {
+            if (!id) return null;
+            try {
+                const db = await openLocalCloudDB();
+                const handle = await new Promise((resolve, reject) => {
+                    const tx = db.transaction(LOCAL_CLOUD_FILES_STORE, 'readonly');
+                    const req = tx.objectStore(LOCAL_CLOUD_FILES_STORE).get(String(id));
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => reject(req.error);
+                });
+                db.close();
+                return handle;
+            } catch (_) { return null; }
+        }
+        async function deleteLocalFileHandle(id) {
+            if (!id) return;
+            try {
+                const db = await openLocalCloudDB();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(LOCAL_CLOUD_FILES_STORE, 'readwrite');
+                    tx.objectStore(LOCAL_CLOUD_FILES_STORE).delete(String(id));
+                    tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+                });
+                db.close();
+            } catch (_) {}
+        }
+
         async function clearLocalCloudHandle() {
             localCloudHandle = null;
             try {
@@ -850,12 +892,13 @@
             } catch (_) {}
             updateLocalCloudUI();
         }
-        async function verifyLocalCloudPermission(handle, request = false) {
+        async function verifyLocalCloudPermission(handle, request = false, mode = 'read') {
             if (!handle) return false;
             try {
-                const opts = { mode: 'readwrite' };
-                if ((await handle.queryPermission(opts)) === 'granted') return true;
-                if (request && (await handle.requestPermission(opts)) === 'granted') return true;
+                if ((await handle.queryPermission({ mode })) === 'granted') return true;
+                // 读取时，若 read 未授权但 readwrite 已授权，也视为可读。
+                if (mode === 'read' && (await handle.queryPermission({ mode: 'readwrite' })) === 'granted') return true;
+                if (request && (await handle.requestPermission({ mode })) === 'granted') return true;
             } catch (_) {}
             return false;
         }
@@ -905,7 +948,7 @@
             const writable = await fh.createWritable();
             await writable.write(file);
             await writable.close();
-            return { fileName: safeName, folderName: localCloudHandle.name || '本地云盘' };
+            return { fileName: safeName, folderName: localCloudHandle.name || '本地云盘', fileHandle: fh };
         }
         async function getLocalFileByRelativePath(relativePath) {
             if (!localCloudHandle || !relativePath) return null;
@@ -922,7 +965,16 @@
         }
 
         async function getLocalFile(item) {
-            if (!localCloudHandle || !item || !item.localFile) return null;
+            if (!item || !item.localFile) return null;
+            // 优先使用持久化的 FileSystemFileHandle，避免每次播放都重新从路径解析。
+            const directHandle = await loadLocalFileHandle(item.id);
+            if (directHandle) {
+                try {
+                    if (!(await verifyLocalCloudPermission(directHandle, false, 'read'))) return null;
+                    return await directHandle.getFile();
+                } catch (_) {}
+            }
+            if (!localCloudHandle) return null;
             return item.relativePath
                 ? getLocalFileByRelativePath(item.relativePath)
                 : (item.fileName ? getLocalFileByRelativePath(item.fileName) : null);
@@ -988,7 +1040,8 @@
                             relativePath: rel,
                             size: file.size,
                             mimeType: isVideoName(name) ? getVideoMime(name, file.type) : (file.type || 'image/*'),
-                            type: isVideoName(name) ? 'video' : 'image'
+                            type: isVideoName(name) ? 'video' : 'image',
+                            fileHandle: handle
                         });
                     } catch (_) {}
                 }
@@ -1015,13 +1068,15 @@
                 let added = 0;
                 for (const f of found) {
                     if (existing.has(f.relativePath)) continue;
+                    const id = genImageId();
                     images.push({
-                        id: genImageId(), url: '', title: f.name.replace(/\.[^.]+$/, ''),
+                        id, url: '', title: f.name.replace(/\.[^.]+$/, ''),
                         desc: `来自 ${localCloudHandle.name || '本地云盘'} / ${f.relativePath}`,
                         type: f.type, localFile: true, fileName: f.name,
                         relativePath: f.relativePath, folderName: localCloudHandle.name || '本地云盘',
                         size: f.size, mimeType: f.mimeType
                     });
+                    if (f.fileHandle) await saveLocalFileHandle(id, f.fileHandle);
                     existing.add(f.relativePath); added++;
                 }
                 saveImages(images);
@@ -1283,7 +1338,7 @@
                 };
                 applySource();
                 video.addEventListener('error', () => {
-                    loading.textContent = `⚠️ Chrome 无法直接播放此文件。文件格式：${getVideoExtension(item.fileName || item.title)}。如果是 MKV/MOV/AVI 等容器，里面的编码也必须受 Chrome 支持；最稳妥的是 MP4 + H.264 + AAC。`;
+                    loading.textContent = `⚠️ 文件已从本地云盘读取，但 Chrome 无法解码。格式：${getVideoExtension(item.fileName || item.title)}。请检查视频编码；最稳妥的是 MP4 + H.264 + AAC。`;
                     if (!loading.isConnected) body.insertBefore(loading, video);
                 });
                 video.addEventListener('click', function(e) {
@@ -1374,6 +1429,8 @@
             if (!confirm('确定要删除这项内容吗？')) return;
             let images = getImages();
             images = images.filter(img => img.id !== id);
+            revokeLocalMediaUrl(id);
+            deleteLocalFileHandle(id);
             saveImages(images);
             renderGallery();
         }
@@ -1413,11 +1470,13 @@
                     if (localCloudHandle) {
                         const saved = await writeFileToLocalCloud(file);
                         if (saved) {
+                            const id = genImageId();
                             images.push({
-                                id: genImageId(), url: '', title: file.name.replace(/\.[^.]+$/, ''),
+                                id, url: '', title: file.name.replace(/\.[^.]+$/, ''),
                                 desc: `来自 ${saved.folderName}`, type: mediaType, localFile: true,
                                 fileName: saved.fileName, folderName: saved.folderName, size: file.size, mimeType: file.type
                             });
+                            if (saved.fileHandle) await saveLocalFileHandle(id, saved.fileHandle);
                             loaded++;
                             if (loaded === total) { saveImages(images); renderGallery(); }
                             return;
