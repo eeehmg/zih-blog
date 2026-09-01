@@ -1,0 +1,18 @@
+{
+  "name": "ZIH · 博客小栈",
+  "short_name": "ZIH博客",
+  "description": "分享技术与生活的点点滴滴",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f5f7",
+  "theme_color": "#17b6a6",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2317b6a6' width='100' height='100' rx='20'/><text y='68' x='50' text-anchor='middle' font-size='50' fill='white'>Z</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

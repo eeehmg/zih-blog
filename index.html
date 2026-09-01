@@ -5,14 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZIH · 博客小栈</title>
     <meta name="description" content="ZIH 的个人博客，分享技术与生活的点点滴滴" />
+    <meta name="author" content="ZIH" />
+    <meta name="theme-color" content="#17b6a6" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ZIH · 博客小栈" />
+    <meta property="og:description" content="分享技术与生活的点点滴滴" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2317b6a6' width='100' height='100' rx='20'/><text y='68' x='50' text-anchor='middle' font-size='50' fill='white'>Z</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;900&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317181c' stroke-width='2'><line x1='3' y1='6' x2='21' y2='6'/><line x1='3' y1='12' x2='21' y2='12'/><line x1='3' y1='18' x2='15' y2='18'/></svg>" />
-    
+    <link rel="alternate" type="application/rss+xml" title="ZIH 博客 RSS" href="#" id="rssLinkHint" />
     <link rel="stylesheet" href="css/style.css" />
 
 </head>
 <body>
+
+    <!-- 阅读进度条 -->
+    <div class="read-progress" id="readProgress" aria-hidden="true"></div>
 
     <!-- ===== TOP BAR ===== -->
     <header class="topbar">
@@ -85,7 +97,7 @@
         <aside class="sidebar-wrapper" id="sidebarWrapper">
             <div class="sidebar-scroll">
                 <div class="card profile">
-                    <span class="greet">不要太劳累了，早睡更健康</span>
+                    <span class="greet" id="sidebarGreet" contenteditable="true" title="点击编辑问候语">不要太劳累了，早睡更健康</span>
                     <div class="avatar-wrapper" id="avatarUpload" title="点击上传头像">
                         <div class="avatar-content" id="avatarContent">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -186,11 +198,26 @@
                     <div class="data-actions">
                         <button class="btn-export" id="exportDataBtn">📤 导出数据</button>
                         <button class="btn-import" id="importDataBtn">📥 导入数据</button>
+                        <button class="btn-export" id="exportRssBtn" type="button" style="background:#e8863a;">📡 导出 RSS</button>
                         <input type="file" id="importFileInput" accept=".json" style="display:none;" />
                     </div>
                     <div class="data-hint">
-                        💡 导出为 <strong>JSON</strong> 文件备份全部数据（文章、评论、相册、联系方式、个人资料、音乐），导入可恢复。
+                        💡 导出 JSON 备份；RSS 可订阅。也可从下方粘贴远程 JSON 地址同步。
                     </div>
+                    <div class="cloud-sync-row">
+                        <input type="url" id="cloudJsonUrl" placeholder="远程 JSON 地址（如 Gist raw）" />
+                        <button type="button" class="btn-import" id="cloudPullBtn">☁️ 拉取</button>
+                    </div>
+                </div>
+
+                <div class="card data-card">
+                    <h4>📊 访问统计</h4>
+                    <div class="visit-stats" id="visitStats">
+                        <div><b id="statToday">0</b><span>今日</span></div>
+                        <div><b id="statTotal">0</b><span>累计</span></div>
+                        <div><b id="statPosts">0</b><span>文章</span></div>
+                    </div>
+                    <div class="data-hint">仅统计本机浏览器访问（localStorage）</div>
                 </div>
 
                 <div class="card theme-card">
@@ -230,6 +257,7 @@
                         </button>
                     </div>
                     <div class="theme-current" id="themeCurrent">当前主题：<strong>☀️ 白天</strong></div>
+                    <label class="holiday-toggle"><input type="checkbox" id="holidayThemeToggle" checked /> 节日自动换肤</label>
                 </div>
 
             </div>
@@ -649,7 +677,7 @@
 
     <!-- ===== RIGHT RAIL ===== -->
     <div class="rail">
-        <a href="#" aria-label="回到顶部" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
+        <a href="#" aria-label="回到顶部" class="rail-top" id="railTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <polyline points="19 12 12 5 5 12" />

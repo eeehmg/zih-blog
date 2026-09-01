@@ -3334,6 +3334,203 @@
         });
         renderFriendLinks();
 
+
+        // ============================================================
+        // 体验与个性 + 数据与对外
+        // ============================================================
+
+        // 阅读进度条
+        (function initReadProgress() {
+            const bar = document.getElementById('readProgress');
+            if (!bar) return;
+            const onScroll = () => {
+                const doc = document.documentElement;
+                const scrollTop = doc.scrollTop || document.body.scrollTop;
+                const height = doc.scrollHeight - doc.clientHeight;
+                const pct = height > 0 ? (scrollTop / height) * 100 : 0;
+                bar.style.width = pct + '%';
+            };
+            window.addEventListener('scroll', onScroll, { passive: true });
+            onScroll();
+        })();
+
+        // 回到顶部增强
+        document.getElementById('railTopBtn')?.addEventListener('click', function() {
+            this.classList.remove('pulse-top');
+            void this.offsetWidth;
+            this.classList.add('pulse-top');
+        });
+
+        // 可编辑侧边栏问候
+        (function initGreet() {
+            const el = document.getElementById('sidebarGreet');
+            if (!el) return;
+            const key = 'ZIH_greet';
+            const saved = localStorage.getItem(key);
+            if (saved) el.textContent = saved;
+            el.addEventListener('blur', () => {
+                const t = el.textContent.trim() || '不要太劳累了，早睡更健康';
+                el.textContent = t;
+                localStorage.setItem(key, t);
+            });
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+            });
+        })();
+
+        // 节日自动换肤
+        function detectHolidayTheme() {
+            const now = new Date();
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+            // 简化：元旦、春节档（约 1-2 月）、中秋档（约 9 月）、国庆
+            if ((m === 1 && d <= 3) || (m === 2 && d <= 20)) return 'sakura'; // 新年/春节氛围
+            if (m === 9 && d >= 10 && d <= 20) return 'warm'; // 中秋暖色
+            if (m === 10 && d <= 7) return 'warm'; // 国庆
+            if (m === 12 && d >= 20) return 'violet'; // 年末
+            return null;
+        }
+        (function initHolidayTheme() {
+            const toggle = document.getElementById('holidayThemeToggle');
+            const enabled = localStorage.getItem('ZIH_holiday_theme') !== '0';
+            if (toggle) toggle.checked = enabled;
+            toggle?.addEventListener('change', function() {
+                localStorage.setItem('ZIH_holiday_theme', this.checked ? '1' : '0');
+                if (this.checked) {
+                    const h = detectHolidayTheme();
+                    if (h) setTheme(h);
+                }
+            });
+            if (enabled) {
+                const h = detectHolidayTheme();
+                // 仅当用户未手动选过主题偏好时自动切换？若开启节日则优先节日
+                if (h && localStorage.getItem('ZIH_holiday_applied') !== h + '-' + new Date().getFullYear()) {
+                    setTheme(h);
+                    localStorage.setItem('ZIH_holiday_applied', h + '-' + new Date().getFullYear());
+                }
+            }
+        })();
+
+        // 访问统计
+        (function initVisitStats() {
+            const key = 'ZIH_visit_stats';
+            let data = { total: 0, days: {} };
+            try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch (_) {}
+            if (!data.days) data.days = {};
+            if (!data.total) data.total = 0;
+            const today = new Date().toISOString().slice(0, 10);
+            data.total += 1;
+            data.days[today] = (data.days[today] || 0) + 1;
+            // 只保留近 60 天
+            const keys = Object.keys(data.days).sort();
+            while (keys.length > 60) {
+                delete data.days[keys.shift()];
+            }
+            localStorage.setItem(key, JSON.stringify(data));
+            const st = document.getElementById('statToday');
+            const su = document.getElementById('statTotal');
+            const sp = document.getElementById('statPosts');
+            if (st) st.textContent = data.days[today] || 0;
+            if (su) su.textContent = data.total || 0;
+            if (sp) sp.textContent = getPosts().filter(p => p.status !== 'draft').length;
+        })();
+
+        // 导出 RSS
+        document.getElementById('exportRssBtn')?.addEventListener('click', function() {
+            const posts = getPosts().filter(p => p.status !== 'draft').sort((a, b) => b.id - a.id).slice(0, 50);
+            const site = location.origin + location.pathname.replace(/index\.html$/, '');
+            const items = posts.map(p => {
+                const desc = (p.summary || p.content || '').replace(/<[^>]+>/g, ' ').slice(0, 200);
+                return `    <item>
+      <title><![CDATA[${p.title || ''}]]></title>
+      <link>${site}#post-${p.id}</link>
+      <guid isPermaLink="false">zih-post-${p.id}</guid>
+      <pubDate>${new Date(p.date || Date.now()).toUTCString()}</pubDate>
+      <description><![CDATA[${desc}]]></description>
+      <category><![CDATA[${p.category || ''}]]></category>
+    </item>`;
+            }).join('\n');
+            const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>ZIH · 博客小栈</title>
+    <link>${site}</link>
+    <description>分享技术与生活的点点滴滴</description>
+    <language>zh-CN</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+${items}
+  </channel>
+</rss>`;
+            const blob = new Blob([xml], { type: 'application/rss+xml' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'zih-feed.xml';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            alert('已下载 RSS 文件 zih-feed.xml\\n可上传到仓库根目录供订阅使用。');
+        });
+
+        // 轻量云同步：从远程 JSON URL 拉取（如 GitHub Gist raw）
+        document.getElementById('cloudPullBtn')?.addEventListener('click', async function() {
+            const url = document.getElementById('cloudJsonUrl')?.value.trim();
+            if (!url) { alert('请填写远程 JSON 地址'); return; }
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (!data.posts && !data.version) throw new Error('不是有效的备份 JSON');
+                if (!confirm('将用远程数据覆盖本地，是否继续？')) return;
+                if (data.posts) savePosts(data.posts);
+                if (data.comments) saveComments(data.comments);
+                if (data.images) saveImages(data.images);
+                if (data.contacts) saveContacts(data.contacts);
+                if (data.profile) saveProfile(data.profile);
+                if (data.music) saveMusicData(data.music);
+                if (data.tieba) saveTieba(data.tieba);
+                if (data.groups) saveGroups(data.groups);
+                if (data.friendLinks) saveFriendLinks(data.friendLinks);
+                renderProfile();
+                renderAll();
+                renderGallery();
+                renderComments();
+                renderContacts();
+                renderTieba();
+                renderGroups();
+                renderFriendLinks();
+                loadMusic();
+                alert('☁️ 远程数据已同步到本地');
+            } catch (err) {
+                alert('拉取失败：' + err.message + '\\n请确认地址可公开访问且允许跨域（CORS）。');
+            }
+        });
+
+        // SEO：打开文章时更新标题
+        const _openDetailSeo = window.openDetail;
+        // openDetail is function declaration - wrap
+        const origOpenDetail = openDetail;
+        window.openDetail = function(id) {
+            origOpenDetail(id);
+            const post = getPosts().find(p => p.id === id);
+            if (post) {
+                document.title = (post.title || '文章') + ' · ZIH 博客小栈';
+                const md = document.querySelector('meta[name="description"]');
+                if (md && post.summary) md.setAttribute('content', post.summary);
+            }
+        };
+        // restore close title
+        const closeDetailRestore = () => {
+            document.title = 'ZIH · 博客小栈';
+        };
+        document.getElementById('closeDetailBtn')?.addEventListener('click', closeDetailRestore);
+        document.getElementById('closeDetailBtn2')?.addEventListener('click', closeDetailRestore);
+
+        // PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
+            });
+        }
+
         console.log('🚀 博客小栈已加载！');
         console.log('📝 支持写文章和新闻，富文本编辑器可插入图片、链接、列表等。');
         console.log('📊 点击文章卡片可查看详情并增加阅读量。');
