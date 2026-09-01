@@ -297,16 +297,48 @@
                     <div class="pillbar" id="pillbar"></div>
                 </div>
 
-                <div class="featured">
-                    <div class="fcard dark1">
-                        <span class="tag">置顶</span>
-                        <div class="big">博客须知</div>
-                        <div class="meta">发表于 2025-8-3 · 0 条评论</div>
+                <div class="featured" id="featuredCards">
+                    <div class="fcard dark1" data-featured-id="notice">
+                        <div class="fcard-tools">
+                            <button type="button" class="fcard-tool" data-featured-edit="notice" title="自定义">✎</button>
+                            <button type="button" class="fcard-tool" data-featured-pin="notice" title="置顶">📌</button>
+                        </div>
+                        <span class="tag" data-featured-field="tag">置顶</span>
+                        <div class="big" data-featured-field="title">博客须知</div>
+                        <div class="meta" data-featured-field="meta">发表于 2025-8-3 · 0 条评论</div>
                     </div>
-                    <div class="fcard dark2">
-                        <span class="tag">英语体系 · 最新</span>
-                        <div class="big">英语词根词缀系列</div>
-                        <div class="meta">第四小节 · 发表于 2 天前</div>
+                    <div class="fcard dark2" data-featured-id="roots">
+                        <div class="fcard-tools">
+                            <button type="button" class="fcard-tool" data-featured-edit="roots" title="自定义">✎</button>
+                            <button type="button" class="fcard-tool" data-featured-pin="roots" title="置顶">📌</button>
+                        </div>
+                        <span class="tag" data-featured-field="tag">英语体系 · 最新</span>
+                        <div class="big" data-featured-field="title">英语词根词缀系列</div>
+                        <div class="meta" data-featured-field="meta">第四小节 · 发表于 2 天前</div>
+                    </div>
+                </div>
+
+                <!-- 特色卡片自定义 -->
+                <div class="modal-overlay" id="featuredEditModal">
+                    <div class="modal featured-edit-modal">
+                        <div class="modal-header">
+                            <h3>自定义特色卡片</h3>
+                            <button type="button" class="close-btn" id="closeFeaturedEditBtn">✕</button>
+                        </div>
+                        <form id="featuredEditForm">
+                            <input type="hidden" id="featuredEditId">
+                            <label>卡片标题</label>
+                            <input type="text" id="featuredTitleInput" maxlength="40" required>
+                            <label>标签</label>
+                            <input type="text" id="featuredTagInput" maxlength="30">
+                            <label>副标题 / 说明</label>
+                            <input type="text" id="featuredMetaInput" maxlength="80">
+                            <label class="featured-check"><input type="checkbox" id="featuredPinnedInput"> 📌 置顶这张卡片</label>
+                            <div class="actions">
+                                <button type="button" class="btn-cancel" id="cancelFeaturedEditBtn">取消</button>
+                                <button type="submit" class="btn-submit">保存修改</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
@@ -318,7 +350,7 @@
                     <div class="header-actions">
                         <div>
                             <h2>📷 预览集</h2>
-                            <p>上传图片/本地小视频，或嵌入 B 站视频、添加云盘链接（大文件推荐）</p>
+                            <p>上传图片/多种视频格式，或嵌入 B 站视频、添加云盘链接（大文件推荐）</p>
                         </div>
                         <div class="gallery-upload-btns">
                             <button class="btn-upload" id="uploadImageBtn">
@@ -327,7 +359,7 @@
                             </button>
                             <button class="btn-upload btn-upload-video" id="uploadVideoBtn">
                                 🎬 上传视频
-                                <input type="file" id="videoInput" accept="video/*" multiple />
+                                <input type="file" id="videoInput" accept="video/*,.mp4,.webm,.mov,.m4v,.ogv,.ogg,.mkv,.avi,.mpg,.mpeg,.ts,.mts,.m2ts,.3gp,.3g2,.flv,.f4v,.wmv" multiple />
                             </button>
                             <button class="btn-upload btn-upload-bili" id="addBiliBtn" type="button" onclick="window.openBiliModal && window.openBiliModal(event)">
                                 📺 嵌入 B 站

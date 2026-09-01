@@ -1621,10 +1621,37 @@
             letter-spacing: 1px;
             margin-bottom: 8px;
         }
-        .fcard .meta {
+         .fcard .meta {
             font-size: 11px;
             color: #a7a9b1;
         }
+        .fcard-tools {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            display: flex;
+            gap: 6px;
+            z-index: 3;
+        }
+        .fcard-tool {
+            width: 30px;
+            height: 30px;
+            border: 1px solid rgba(255,255,255,.16);
+            border-radius: 9px;
+            background: rgba(0,0,0,.25);
+            color: #fff;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: transform .2s, background .2s, opacity .2s;
+        }
+        .fcard-tool:hover { transform: translateY(-1px); background: rgba(255,255,255,.16); }
+        .fcard:not(.is-pinned) { opacity: .92; }
+        .fcard.is-pinned { box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+        .featured-edit-modal { max-width: 520px; }
+        .featured-edit-modal label { display:block; margin:14px 0 7px; font-size:13px; font-weight:700; }
+        .featured-edit-modal input[type="text"] { width:100%; box-sizing:border-box; }
+        .featured-check { display:flex !important; align-items:center; gap:8px; font-weight:600 !important; cursor:pointer; }
+        .featured-check input { width:auto !important; }
 
         .grid {
             display: grid;

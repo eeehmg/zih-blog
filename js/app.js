@@ -944,7 +944,31 @@
         }
 
         function isVideoName(name) {
-            return /\.(mp4|webm|mov|m4v|ogv|ogg|avi|mkv)$/i.test(name || '');
+            return /\.(mp4|webm|mov|m4v|ogv|ogg|avi|mkv|mpg|mpeg|ts|mts|m2ts|3gp|3g2|flv|f4v|wmv)$/i.test(name || '');
+        }
+        function getVideoMime(name, fileType = '') {
+            if (fileType && fileType.startsWith('video/')) return fileType;
+            const ext = (String(name || '').split('.').pop() || '').toLowerCase();
+            const map = {
+                mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', m4v: 'video/mp4',
+                ogv: 'video/ogg', ogg: 'video/ogg', mkv: 'video/x-matroska', avi: 'video/x-msvideo',
+                mpg: 'video/mpeg', mpeg: 'video/mpeg', ts: 'video/mp2t', mts: 'video/mp2t', m2ts: 'video/mp2t',
+                '3gp': 'video/3gpp', '3g2': 'video/3gpp2', flv: 'video/x-flv', f4v: 'video/x-f4v', wmv: 'video/x-ms-wmv'
+            };
+            return map[ext] || 'video/*';
+        }
+        function getVideoExtension(name) {
+            const m = String(name || '').match(/\.([^.]+)$/);
+            return m ? m[1].toUpperCase() : 'VIDEO';
+        }
+        function getChromePlaybackHint(item, video) {
+            const mime = getVideoMime(item.fileName || item.title || '', item.mimeType || '');
+            const support = video.canPlayType(mime);
+            if (support) return { mime, support, message: '' };
+            return {
+                mime, support: '',
+                message: `Chrome 已识别 ${getVideoExtension(item.fileName || item.title)} 文件，但当前编码/容器可能无法直接播放。推荐转换为 MP4（H.264 + AAC）或 WebM（VP8/VP9/AV1 + Opus）。`
+            };
         }
         function isImageName(name) {
             return /\.(jpg|jpeg|png|webp|gif|bmp|avif)$/i.test(name || '');
@@ -963,7 +987,7 @@
                             name,
                             relativePath: rel,
                             size: file.size,
-                            mimeType: file.type || (isVideoName(name) ? 'video/*' : 'image/*'),
+                            mimeType: isVideoName(name) ? getVideoMime(name, file.type) : (file.type || 'image/*'),
                             type: isVideoName(name) ? 'video' : 'image'
                         });
                     } catch (_) {}
@@ -1243,14 +1267,23 @@
                         loading.textContent = '⚠️ 无法读取本地视频，请重新连接云盘文件夹';
                         return;
                     }
+                    const supportInfo = getChromePlaybackHint(item, video);
                     video.src = src;
+                    if (supportInfo.mime && supportInfo.mime !== 'video/*') video.setAttribute('type', supportInfo.mime);
                     video.load();
-                    loading.remove();
-                    video.play().catch(() => {});
+                    if (supportInfo.message) {
+                        loading.textContent = 'ℹ️ ' + supportInfo.message;
+                    }
+                    const onReady = () => {
+                        loading.remove();
+                        video.play().catch(() => {});
+                    };
+                    video.addEventListener('loadeddata', onReady, { once: true });
+                    video.addEventListener('canplay', onReady, { once: true });
                 };
                 applySource();
                 video.addEventListener('error', () => {
-                    loading.textContent = '⚠️ 浏览器无法播放此视频，可能是编码格式不兼容（推荐 H.264 + AAC）';
+                    loading.textContent = `⚠️ Chrome 无法直接播放此文件。文件格式：${getVideoExtension(item.fileName || item.title)}。如果是 MKV/MOV/AVI 等容器，里面的编码也必须受 Chrome 支持；最稳妥的是 MP4 + H.264 + AAC。`;
                     if (!loading.isConnected) body.insertBefore(loading, video);
                 });
                 video.addEventListener('click', function(e) {
@@ -1360,8 +1393,8 @@
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 const okType = mediaType === 'video'
-                    ? file.type.startsWith('video/')
-                    : file.type.startsWith('image/');
+                    ? (file.type.startsWith('video/') || isVideoName(file.name))
+                    : (file.type.startsWith('image/') || isImageName(file.name));
                 if (!okType) continue;
                 // 已连接本地云盘时不限制大文件；文件只写入本地文件夹，不塞进 localStorage。
                 // 未连接本地云盘时仍限制 4MB，避免浏览器 localStorage 爆满。
@@ -4029,3 +4062,80 @@ ${items}
         console.log('📊 点击文章卡片可查看详情并增加阅读量。');
         console.log('💬 支持评论回复 · ❤️ 点赞 · 📌 置顶 · 💻 跟随系统主题 · 📱 底部导航');
     
+
+// ============================================================
+// 特色卡片：自定义 + 置顶
+// ============================================================
+(function initFeaturedCards() {
+    const KEY = 'ZIH_featured_cards_v1';
+    const defaults = {
+        notice: { title: '博客须知', tag: '置顶', meta: '发表于 2025-8-3 · 0 条评论', pinned: true },
+        roots: { title: '英语词根词缀系列', tag: '英语体系 · 最新', meta: '第四小节 · 发表于 2 天前', pinned: false }
+    };
+    const getState = () => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+            return {
+                notice: { ...defaults.notice, ...(saved.notice || {}) },
+                roots: { ...defaults.roots, ...(saved.roots || {}) }
+            };
+        } catch (_) { return JSON.parse(JSON.stringify(defaults)); }
+    };
+    const saveState = state => localStorage.setItem(KEY, JSON.stringify(state));
+    const cards = document.getElementById('featuredCards');
+    const modal = document.getElementById('featuredEditModal');
+    if (!cards || !modal) return;
+    const form = document.getElementById('featuredEditForm');
+    const idInput = document.getElementById('featuredEditId');
+    const titleInput = document.getElementById('featuredTitleInput');
+    const tagInput = document.getElementById('featuredTagInput');
+    const metaInput = document.getElementById('featuredMetaInput');
+    const pinInput = document.getElementById('featuredPinnedInput');
+
+    function render() {
+        const state = getState();
+        cards.querySelectorAll('.fcard[data-featured-id]').forEach(card => {
+            const id = card.dataset.featuredId, d = state[id];
+            card.querySelector('[data-featured-field="title"]').textContent = d.title;
+            card.querySelector('[data-featured-field="tag"]').textContent = d.tag || '';
+            card.querySelector('[data-featured-field="meta"]').textContent = d.meta || '';
+            card.classList.toggle('is-pinned', !!d.pinned);
+            const pinBtn = card.querySelector('[data-featured-pin]');
+            if (pinBtn) {
+                pinBtn.textContent = d.pinned ? '📌' : '📍';
+                pinBtn.title = d.pinned ? '取消置顶' : '置顶';
+            }
+        });
+        [...cards.querySelectorAll('.fcard[data-featured-id]')]
+            .sort((a,b) => Number(getState()[b.dataset.featuredId].pinned) - Number(getState()[a.dataset.featuredId].pinned))
+            .forEach(c => cards.appendChild(c));
+    }
+    function openEditor(id) {
+        const d = getState()[id];
+        idInput.value = id; titleInput.value = d.title; tagInput.value = d.tag; metaInput.value = d.meta; pinInput.checked = !!d.pinned;
+        modal.classList.add('active');
+        setTimeout(() => titleInput.focus(), 30);
+    }
+    function closeEditor() { modal.classList.remove('active'); }
+    cards.addEventListener('click', e => {
+        const edit = e.target.closest('[data-featured-edit]');
+        const pin = e.target.closest('[data-featured-pin]');
+        if (edit) { e.stopPropagation(); openEditor(edit.dataset.featuredEdit); return; }
+        if (pin) {
+            e.stopPropagation();
+            const id = pin.dataset.featuredPin, state = getState();
+            state[id].pinned = !state[id].pinned; saveState(state); render();
+        }
+    });
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        const id = idInput.value, state = getState();
+        state[id] = { title: titleInput.value.trim() || defaults[id].title, tag: tagInput.value.trim(), meta: metaInput.value.trim(), pinned: pinInput.checked };
+        saveState(state); render(); closeEditor();
+    });
+    document.getElementById('closeFeaturedEditBtn')?.addEventListener('click', closeEditor);
+    document.getElementById('cancelFeaturedEditBtn')?.addEventListener('click', closeEditor);
+    modal.addEventListener('click', e => { if (e.target === modal) closeEditor(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('active')) closeEditor(); });
+    render();
+})();
