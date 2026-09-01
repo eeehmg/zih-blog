@@ -753,7 +753,7 @@
         const defaultImages = [
             // —— 示例（可删可改）：仓库内图片 ——
             // { id: 101, url: 'assets/gallery/photo1.jpg', title: '我的照片', desc: '来自仓库', type: 'image' },
-            // { id: 102, url: 'assets/gallery/clip.mp4', title: '小视频', desc: '', type: 'video' },
+            // { id: 102, url: 'assets/gallery/clip.mp4', title: '小视频', desc: '来自仓库', type: 'video' },
             // { id: 103, type: 'bilibili', bvid: 'BV1xx411c7mD', url: 'https://www.bilibili.com/video/BV1xx411c7mD', title: 'B站示例', desc: '来自 B 站' },
             // —— 占位图（无本地文件时也能看到布局；有真实文件后请改成 assets 路径）——
             { id: 1, url: 'https://picsum.photos/seed/zih1/400/300', title: '示例·晨光', desc: '请替换为 assets/gallery/ 下的文件', type: 'image' },
