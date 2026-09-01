@@ -747,18 +747,18 @@
         // 4. 相册 / 视频管理
         // ============================================================
         const IMAGE_KEY = 'ZIH_gallery';
-        // type: 'image' | 'video'
+        // type: 'image' | 'video' | 'bilibili'
+        // 长期多设备：把文件放进 assets/gallery/，在这里写相对路径，再推送到 GitHub。
+        // 修改后若网页仍显示旧数据，请点「同步仓库图集」或执行 localStorage.removeItem('ZIH_gallery')
         const defaultImages = [
-            { id: 1, url: 'https://picsum.photos/seed/1/400/300', title: '晨光', desc: '清晨的第一缕光', type: 'image' },
-            { id: 2, url: 'https://picsum.photos/seed/2/400/300', title: '城市', desc: '暮色下的楼群', type: 'image' },
-            { id: 3, url: 'https://picsum.photos/seed/3/400/300', title: '小径', desc: '林间漫步', type: 'image' },
-            { id: 4, url: 'https://picsum.photos/seed/4/400/300', title: '海岸', desc: '浪花与礁石', type: 'image' },
-            { id: 5, url: 'https://picsum.photos/seed/5/400/300', title: '街角', desc: '旧书店的午后', type: 'image' },
-            { id: 6, url: 'https://picsum.photos/seed/6/400/300', title: '星空', desc: '深夜的宁静', type: 'image' },
-            { id: 7, url: 'https://picsum.photos/seed/7/400/300', title: '烟火', desc: '人间至味', type: 'image' },
-            { id: 8, url: 'https://picsum.photos/seed/8/400/300', title: '剪影', desc: '黄昏的轮廓', type: 'image' },
-            { id: 9, url: 'https://picsum.photos/seed/9/400/300', title: '绿意', desc: '自然呼吸', type: 'image' },
-            { id: 10, url: 'assets/gallery/showcase.mp4', title: '精彩视频', desc: '点击播放', type: 'video' }
+            // —— 示例（可删可改）：仓库内图片 ——
+            // { id: 101, url: 'assets/gallery/photo1.jpg', title: '我的照片', desc: '来自仓库', type: 'image' },
+            // { id: 102, url: 'assets/gallery/clip.mp4', title: '小视频', desc: '来自仓库', type: 'video' },
+            // { id: 103, type: 'bilibili', bvid: 'BV1xx411c7mD', url: 'https://www.bilibili.com/video/BV1xx411c7mD', title: 'B站示例', desc: '来自 B 站' },
+            // —— 占位图（无本地文件时也能看到布局；有真实文件后请改成 assets 路径）——
+            { id: 1, url: 'https://picsum.photos/seed/zih1/400/300', title: '示例·晨光', desc: '请替换为 assets/gallery/ 下的文件', type: 'image' },
+            { id: 2, url: 'https://picsum.photos/seed/zih2/400/300', title: '示例·城市', desc: '推送 GitHub 后所有设备可见', type: 'image' },
+            { id: 3, url: 'https://picsum.photos/seed/zih3/400/300', title: '示例·小径', desc: '点下方「同步仓库图集」可重置', type: 'image' }
         ];
 
         // 单个文件建议不超过 4MB（localStorage 总容量约 5~10MB）
@@ -776,17 +776,25 @@
                 } catch (_) {}
             }
             localStorage.setItem(IMAGE_KEY, JSON.stringify(defaultImages));
-            return defaultImages;
+            return defaultImages.map(x => ({ ...x }));
         }
 
         function saveImages(images) {
             try {
                 localStorage.setItem(IMAGE_KEY, JSON.stringify(images));
             } catch (err) {
-                alert('存储空间不足，请删除一些图片/视频后再试。\n（浏览器 localStorage 容量有限，大视频建议放到 assets/gallery/）');
+                alert('存储空间不足，请删除一些本地上传项。\n长期保存请把文件放 assets/gallery/ 并写入 defaultImages。');
                 throw err;
             }
         }
+
+        function syncGalleryFromRepo() {
+            if (!confirm('用仓库 defaultImages 覆盖本机预览列表？\n仅本机上传、未写入代码的内容会消失。')) return;
+            localStorage.setItem(IMAGE_KEY, JSON.stringify(defaultImages));
+            renderGallery();
+            alert('已同步。请确认图片已在 assets/gallery/ 并推送到 GitHub。');
+        }
+        window.syncGalleryFromRepo = syncGalleryFromRepo;
 
         function genImageId() { return Date.now() + Math.floor(Math.random() * 1000); }
 
