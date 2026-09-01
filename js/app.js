@@ -757,7 +757,8 @@
             { id: 6, url: 'https://picsum.photos/seed/6/400/300', title: '星空', desc: '深夜的宁静', type: 'image' },
             { id: 7, url: 'https://picsum.photos/seed/7/400/300', title: '烟火', desc: '人间至味', type: 'image' },
             { id: 8, url: 'https://picsum.photos/seed/8/400/300', title: '剪影', desc: '黄昏的轮廓', type: 'image' },
-            { id: 9, url: 'https://picsum.photos/seed/9/400/300', title: '绿意', desc: '自然呼吸', type: 'image' }
+            { id: 9, url: 'https://picsum.photos/seed/9/400/300', title: '绿意', desc: '自然呼吸', type: 'image' },
+            { id: 10, url: 'assets/gallery/showcase.mp4', title: '精彩视频', desc: '点击播放', type: 'video' }
         ];
 
         // 单个文件建议不超过 4MB（localStorage 总容量约 5~10MB）
