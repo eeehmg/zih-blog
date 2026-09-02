@@ -3551,3 +3551,24 @@
   .bottom-nav .bnav-item { min-height: 48px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .rail-settings-panel { right: 10px !important; bottom: calc(126px + env(safe-area-inset-bottom, 0px)) !important; z-index: 1300 !important; }
 }
+
+
+/* ===== V4 网页播放助手 ===== */
+.web-player-box{margin-top:12px;padding:14px;border:1px solid var(--line,#e7e8ec);border-radius:16px;background:rgba(127,127,127,.04)}
+.web-player-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.web-player-head strong{display:block;font-size:14px}.web-player-head span{display:block;color:var(--ink-faint);font-size:11px;margin-top:3px}
+.web-player-ready{color:var(--teal,#17b6a6)!important;white-space:nowrap;font-size:11px!important}
+.web-player-controls{display:grid;grid-template-columns:auto minmax(180px,1fr) auto auto;gap:8px;margin-top:10px}
+.web-file-btn{display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;border-radius:10px;background:var(--panel,#fff);border:1px solid var(--line,#e7e8ec);cursor:pointer;font-size:12px;white-space:nowrap}
+.web-player-controls input{min-width:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 10px;font-family:inherit;font-size:12px}
+.web-player-screen{margin-top:10px;min-height:170px;border-radius:13px;overflow:hidden;background:#0d0f12;display:flex;align-items:center;justify-content:center}
+.web-player-screen video,.web-player-screen audio{width:100%;max-height:56vh;display:block}
+.web-player-screen audio{padding:24px}
+.web-player-empty{text-align:center;color:#9aa0aa;font-size:28px;line-height:1.8;padding:32px}.web-player-empty span{font-size:12px}
+.web-player-info{margin-top:8px;color:var(--ink-faint);font-size:11px;line-height:1.5}
+.media-web-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--line,#e5e7eb);background:var(--panel,#fff);color:var(--ink,#222);border-radius:999px;padding:7px 11px;font-size:12px;cursor:pointer;transition:.2s}
+.media-web-btn:hover{transform:translateY(-1px);border-color:var(--teal,#18b87a);color:var(--teal,#18b87a);box-shadow:0 5px 18px rgba(0,0,0,.08)}
+@media(max-width:700px){.web-player-controls{grid-template-columns:1fr 1fr}.web-player-controls input{grid-column:1/-1}.web-player-controls button{min-height:38px}.web-file-btn{min-height:38px}.web-player-screen{min-height:150px}}
+
+/* V4: 彻底隐藏旧版外接播放器按钮 */
+.media-system-btn,.media-external-btn,.media-transcode-btn,.external-player-box{display:none!important}

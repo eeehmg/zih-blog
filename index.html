@@ -709,22 +709,22 @@
                     <button type="button" class="btn-submit" id="scanCloudFolderBtn">🔎 扫描视频/图片</button>
                     <button type="button" class="btn-cancel" id="clearCloudFolderBtn">断开</button>
                 </div>
-                <div class="local-cloud-hint">连接后可扫描本地云盘。支持 MP4 / WebM / MOV / MKV / AVI / TS / MTS / M2TS / FLV / WMV 等。Chrome 原生播放失败时可「🔄 自动转码」为 MP4（H.264 + AAC），也可交给 VLC / PotPlayer / MPC-HC / mpv 等外接播放器。请先运行压缩包内的「启动系统播放器助手.bat」。</div>
-                <div class="external-player-box">
-                    <div class="external-player-head"><strong>🎬 外接播放器</strong><span id="externalPlayerStatus">助手未连接</span></div>
-                    <div class="external-player-row">
-                        <select id="externalPlayerSelect">
-                            <option value="default">Windows 默认播放器</option>
-                            <option value="vlc">VLC</option>
-                            <option value="potplayer">PotPlayer</option>
-                            <option value="mpchc">MPC-HC</option>
-                            <option value="mpv">mpv</option>
-                            <option value="custom">自定义播放器</option>
-                        </select>
-                        <input id="externalPlayerPath" type="text" placeholder="自定义播放器 .exe 路径（可选）" />
-                        <button type="button" class="btn-submit" id="saveExternalPlayerBtn">保存</button>
+                <div class="local-cloud-hint">连接后可扫描本地云盘。支持 MP4 / WebM / MOV / MKV / AVI / TS / MTS / M2TS / FLV / WMV 等。浏览器能解码的格式会直接播放；不需要安装、运行或连接任何 Windows 播放助手。</div>
+                <div class="web-player-box" id="webPlayerBox">
+                    <div class="web-player-head">
+                        <div><strong>🎬 网页播放助手</strong><span>浏览器内直接播放 · 手机 / 电脑通用</span></div>
+                        <span class="web-player-ready">● 已就绪</span>
                     </div>
-                    <div class="local-cloud-hint">助手会自动尝试检测常见安装路径；自定义播放器填入 .exe 完整路径即可。这样不再依赖 Windows 文件关联。</div>
+                    <div class="web-player-controls">
+                        <label class="web-file-btn">📁 选择本地文件<input id="webPlayerFileInput" type="file" accept="video/*,audio/*" hidden></label>
+                        <input id="webPlayerUrlInput" type="url" placeholder="粘贴视频 / 音频直链（MP4、WebM、MP3 等）" />
+                        <button type="button" class="btn-submit" id="webPlayerUrlBtn">▶ 播放</button>
+                        <button type="button" class="btn-cancel" id="webPlayerClearBtn">清空</button>
+                    </div>
+                    <div class="web-player-screen" id="webPlayerScreen">
+                        <div class="web-player-empty">🎬<br><span>选择文件或粘贴直链开始播放</span></div>
+                    </div>
+                    <div class="web-player-info" id="webPlayerInfo">不会上传文件；选择本地文件后，仅在当前浏览器中读取。</div>
                 </div>
             </div>
 
@@ -758,9 +758,7 @@
             <div class="media-modal-header">
                 <h3 id="mediaModalTitle">预览</h3>
                 <div class="media-modal-actions">
-                    <button type="button" class="media-system-btn" id="mediaSystemPlayerBtn" title="用 Windows 默认播放器打开" style="display:none;">🖥️ 默认播放器</button>
-                    <button type="button" class="media-external-btn" id="mediaExternalPlayerBtn" title="用外接播放器打开" style="display:none;">🎬 外接播放器</button>
-                    <button type="button" class="media-transcode-btn" id="mediaTranscodeBtn" title="用 FFmpeg 自动转成 Chrome 兼容 MP4" style="display:none;">🔄 自动转码</button>
+                    <button type="button" class="media-web-btn" id="mediaWebPlayerBtn" title="在网页播放助手中打开" style="display:none;">🎬 网页播放助手</button>
                     <button type="button" class="media-fs-btn" id="mediaFullscreenBtn" title="全屏">⛶ 全屏</button>
                     <button type="button" class="close-btn" id="closeMediaBtn" style="font-size:22px;background:none;border:none;color:var(--ink-faint);cursor:pointer;">✕</button>
                 </div>
@@ -853,6 +851,7 @@
     </nav>
 
     <script src="js/app.js"></script>
+    <script src="js/web-player.js"></script>
     <script src="js/navigation-fix.js"></script>
 
 

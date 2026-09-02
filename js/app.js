@@ -1232,123 +1232,9 @@
             hydrateLocalGalleryMedia();
         }
 
-        // ----- 本地视频增强助手：外接播放器 + FFmpeg 自动转码 + 本地缓存 -----
-        const SYSTEM_PLAYER_HELPER = 'http://127.0.0.1:47823';
-        let externalPlayerChoice = localStorage.getItem('ZIH_external_player') || 'default';
-        let externalPlayerPath = localStorage.getItem('ZIH_external_player_path') || '';
-
-        function helperErrorText() {
-            return '本地助手未连接。它只在 Windows 电脑本机运行；手机端不会连接这个助手。电脑端请先双击「启动系统播放器助手.bat」并保持窗口运行。';
-        }
-        async function helperJson(path, options = {}) {
-            const r = await fetch(SYSTEM_PLAYER_HELPER + path, { cache:'no-store', ...options });
-            let data = null;
-            try { data = await r.json(); } catch (_) {}
-            if (!r.ok || !data || data.ok === false) throw new Error((data && data.message) || '本地助手返回错误');
-            return data;
-        }
-        async function getHelperStatus() {
-            return await helperJson('/status');
-        }
-        function setExternalPlayerUI(status) {
-            const el = document.getElementById('externalPlayerStatus');
-            if (!el) return;
-            if (!status) { el.textContent = '未连接（Windows 本机助手）'; return; }
-            const p = status.players || {};
-            const names = Object.keys(p).filter(k => p[k]);
-            el.textContent = status.ffmpeg ? `助手已连接 · FFmpeg ✓ · 可用：${names.join(' / ') || '默认播放器'}` : `助手已连接 · FFmpeg 未找到 · 可用：${names.join(' / ') || '默认播放器'}`;
-        }
-        async function refreshExternalPlayerSettings() {
-            try {
-                const st = await getHelperStatus();
-                setExternalPlayerUI(st);
-                const sel = document.getElementById('externalPlayerSelect');
-                const input = document.getElementById('externalPlayerPath');
-                if (sel) sel.value = externalPlayerChoice;
-                if (input) input.value = externalPlayerPath;
-                return st;
-            } catch (_) {
-                setExternalPlayerUI(null);
-                return null;
-            }
-        }
-        async function saveExternalPlayerSettings() {
-            const sel = document.getElementById('externalPlayerSelect');
-            const input = document.getElementById('externalPlayerPath');
-            const choice = sel ? sel.value : 'default';
-            const customPath = input ? input.value.trim() : '';
-            if (choice === 'custom' && !customPath) { alert('请填写自定义播放器 .exe 的完整路径。'); return; }
-            try {
-                const data = await helperJson('/set-player?name=' + encodeURIComponent(choice) + '&path=' + encodeURIComponent(customPath));
-                externalPlayerChoice = choice;
-                externalPlayerPath = customPath;
-                localStorage.setItem('ZIH_external_player', choice);
-                localStorage.setItem('ZIH_external_player_path', customPath);
-                setExternalPlayerUI(data.status || null);
-                alert('🎬 外接播放器设置已保存：' + (data.player || choice));
-            } catch (e) {
-                alert((e.message || helperErrorText()) + '\n\n请确认「启动系统播放器助手.bat」正在运行。');
-            }
-        }
-        async function openLocalVideoInSystemPlayer(item) {
-            if (!item || !item.localFile) return false;
-            const rel = item.relativePath || item.fileName || '';
-            if (!rel) { alert('找不到本地视频路径，请重新扫描本地云盘。'); return false; }
-            try {
-                await helperJson('/open?path=' + encodeURIComponent(rel) + '&player=default');
-                return true;
-            } catch (e) {
-                alert((e.message || helperErrorText()) + '\n\n现在建议使用「🎬 外接播放器」，它不依赖 Windows 文件关联。');
-                return false;
-            }
-        }
-        async function openLocalVideoInExternalPlayer(item) {
-            if (!item || !item.localFile) return false;
-            const rel = item.relativePath || item.fileName || '';
-            if (!rel) return false;
-            try {
-                await helperJson('/open?path=' + encodeURIComponent(rel) + '&player=' + encodeURIComponent(externalPlayerChoice));
-                return true;
-            } catch (e) {
-                const st = await refreshExternalPlayerSettings();
-                if (st && st.players && st.players[externalPlayerChoice]) {
-                    alert('外接播放器启动失败：' + e.message);
-                } else {
-                    alert('未找到所选播放器。\n\n请在「☁️ 云盘 → 🎬 外接播放器」里选择 VLC / PotPlayer / MPC-HC / mpv，或填写播放器 .exe 完整路径。');
-                }
-                return false;
-            }
-        }
-        async function transcodeLocalVideo(item, onDone) {
-            if (!item || !item.localFile) return false;
-            const rel = item.relativePath || item.fileName || '';
-            if (!rel) return false;
-            try {
-                const job = await helperJson('/transcode?path=' + encodeURIComponent(rel));
-                if (!job.jobId) throw new Error('未创建转码任务');
-                const loading = document.querySelector('.local-video-loading');
-                if (loading) loading.textContent = '🔄 正在自动转码为 MP4…';
-                let lastState = '';
-                for (let i = 0; i < 1800; i++) {
-                    await new Promise(r => setTimeout(r, 1000));
-                    const st = await helperJson('/job?id=' + encodeURIComponent(job.jobId));
-                    if (st.state !== lastState) { lastState = st.state; if (loading && st.message) loading.textContent = '🔄 ' + st.message; }
-                    if (st.state === 'done') {
-                        localStorage.setItem('ZIH_transcode_' + item.id, st.url || '');
-                        if (onDone) await onDone(st.url);
-                        return true;
-                    }
-                    if (st.state === 'error') throw new Error(st.message || '转码失败');
-                }
-                throw new Error('转码等待时间过长，请稍后查看缓存文件。');
-            } catch (e) {
-                alert('自动转码失败：' + (e.message || e) + '\n\n请确认已安装 FFmpeg，或直接使用 VLC / PotPlayer / MPC-HC / mpv。');
-                return false;
-            }
-        }
-        window.openLocalVideoInSystemPlayer = openLocalVideoInSystemPlayer;
-        window.openLocalVideoInExternalPlayer = openLocalVideoInExternalPlayer;
-        window.transcodeLocalVideo = transcodeLocalVideo;
+        // ----- V4：网页播放助手（不再依赖 Windows 本机助手） -----
+        // 本地文件使用浏览器 File System Access / Blob URL；网络文件使用浏览器原生媒体能力。
+        // 旧版 127.0.0.1:47823 / BAT / PowerShell 播放助手已移除。
 
         // ----- 媒体预览：点击放大 + 全屏 -----
         let currentMediaEl = null;
@@ -1375,13 +1261,9 @@
             const body = document.getElementById('mediaModalBody');
             const title = document.getElementById('mediaModalTitle');
             const fsBtn = document.getElementById('mediaFullscreenBtn');
-            const systemBtn = document.getElementById('mediaSystemPlayerBtn');
-            const externalBtn = document.getElementById('mediaExternalPlayerBtn');
-            const transcodeBtn = document.getElementById('mediaTranscodeBtn');
+            const webBtn = document.getElementById('mediaWebPlayerBtn');
             const tip = document.querySelector('.media-modal-tip');
-            if (systemBtn) { systemBtn.style.display = 'none'; systemBtn.dataset.mediaId = ''; }
-            if (externalBtn) { externalBtn.style.display = 'none'; externalBtn.dataset.mediaId = ''; }
-            if (transcodeBtn) { transcodeBtn.style.display = 'none'; transcodeBtn.dataset.mediaId = ''; }
+            if (webBtn) { webBtn.style.display = 'none'; webBtn.dataset.mediaId = ''; }
             title.textContent = item.title || (item.type === 'bilibili' ? 'B站视频' : item.type === 'cloud' ? (item.pan || '云盘链接') : item.type === 'video' ? '视频预览' : '图片预览');
             body.innerHTML = '';
             currentMediaEl = null;
@@ -1477,17 +1359,9 @@
                 });
                 currentMediaEl = video;
                 if (fsBtn) fsBtn.style.display = 'inline-flex';
-                if (systemBtn) {
-                    systemBtn.style.display = item.localFile ? 'inline-flex' : 'none';
-                    systemBtn.dataset.mediaId = item.localFile ? String(item.id) : '';
-                }
-                if (externalBtn) {
-                    externalBtn.style.display = item.localFile ? 'inline-flex' : 'none';
-                    externalBtn.dataset.mediaId = item.localFile ? String(item.id) : '';
-                }
-                if (transcodeBtn) {
-                    transcodeBtn.style.display = item.localFile ? 'inline-flex' : 'none';
-                    transcodeBtn.dataset.mediaId = item.localFile ? String(item.id) : '';
+                if (webBtn) {
+                    webBtn.style.display = 'inline-flex';
+                    webBtn.dataset.mediaId = String(item.id);
                 }
                 if (tip) tip.textContent = item.localFile
                     ? `本地云盘 · ${item.size ? formatFileSize(item.size) : '大文件'} · 仅加载当前视频`
@@ -1554,30 +1428,11 @@
             document.getElementById('mediaFullscreenBtn')?.addEventListener('click', function() {
                 requestMediaFullscreen(currentMediaEl);
             });
-            document.getElementById('mediaSystemPlayerBtn')?.addEventListener('click', async function() {
+            document.getElementById('mediaWebPlayerBtn')?.addEventListener('click', async function() {
                 const id = this.dataset.mediaId ? Number(this.dataset.mediaId) : 0;
                 const item = getImages().find(i => i.id === id);
-                if (item) await openLocalVideoInSystemPlayer(item);
+                if (item && window.openWebPlayerForItem) await window.openWebPlayerForItem(item);
             });
-            document.getElementById('mediaExternalPlayerBtn')?.addEventListener('click', async function() {
-                const id = this.dataset.mediaId ? Number(this.dataset.mediaId) : 0;
-                const item = getImages().find(i => i.id === id);
-                if (item) await openLocalVideoInExternalPlayer(item);
-            });
-            document.getElementById('mediaTranscodeBtn')?.addEventListener('click', async function() {
-                const id = this.dataset.mediaId ? Number(this.dataset.mediaId) : 0;
-                const item = getImages().find(i => i.id === id);
-                if (!item) return;
-                this.disabled = true;
-                this.textContent = '🔄 转码中…';
-                await transcodeLocalVideo(item, async (url) => {
-                    const v = document.querySelector('#mediaModalBody video');
-                    if (v && url) { v.src = url; v.load(); v.play().catch(()=>{}); }
-                });
-                this.disabled = false;
-                this.textContent = '🔄 自动转码';
-            });
-            document.getElementById('saveExternalPlayerBtn')?.addEventListener('click', saveExternalPlayerSettings);
             modal.addEventListener('click', function(e) {
                 if (e.target === modal) closeMediaViewer();
             });
@@ -1844,7 +1699,6 @@
         window.closeCloudModal = closeCloudModal;
 
         (function bindLocalCloud() {
-            refreshExternalPlayerSettings();
             const choose = document.getElementById('chooseCloudFolderBtn');
             const clear = document.getElementById('clearCloudFolderBtn');
             if (choose) choose.addEventListener('click', chooseLocalCloudFolder);
