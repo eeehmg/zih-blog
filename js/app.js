@@ -1232,24 +1232,123 @@
             hydrateLocalGalleryMedia();
         }
 
-        // ----- 系统播放器助手：把本地视频交给 Windows 默认播放器，不经过 Chrome 解码 -----
+        // ----- 本地视频增强助手：外接播放器 + FFmpeg 自动转码 + 本地缓存 -----
         const SYSTEM_PLAYER_HELPER = 'http://127.0.0.1:47823';
+        let externalPlayerChoice = localStorage.getItem('ZIH_external_player') || 'default';
+        let externalPlayerPath = localStorage.getItem('ZIH_external_player_path') || '';
+
+        function helperErrorText() {
+            return '无法连接本地视频助手。请先双击压缩包里的「启动系统播放器助手.bat」，保持窗口运行。';
+        }
+        async function helperJson(path, options = {}) {
+            const r = await fetch(SYSTEM_PLAYER_HELPER + path, { cache:'no-store', ...options });
+            let data = null;
+            try { data = await r.json(); } catch (_) {}
+            if (!r.ok || !data || data.ok === false) throw new Error((data && data.message) || '本地助手返回错误');
+            return data;
+        }
+        async function getHelperStatus() {
+            return await helperJson('/status');
+        }
+        function setExternalPlayerUI(status) {
+            const el = document.getElementById('externalPlayerStatus');
+            if (!el) return;
+            if (!status) { el.textContent = '助手未连接'; return; }
+            const p = status.players || {};
+            const names = Object.keys(p).filter(k => p[k]);
+            el.textContent = status.ffmpeg ? `助手已连接 · FFmpeg ✓ · 可用：${names.join(' / ') || '默认播放器'}` : `助手已连接 · FFmpeg 未找到 · 可用：${names.join(' / ') || '默认播放器'}`;
+        }
+        async function refreshExternalPlayerSettings() {
+            try {
+                const st = await getHelperStatus();
+                setExternalPlayerUI(st);
+                const sel = document.getElementById('externalPlayerSelect');
+                const input = document.getElementById('externalPlayerPath');
+                if (sel) sel.value = externalPlayerChoice;
+                if (input) input.value = externalPlayerPath;
+                return st;
+            } catch (_) {
+                setExternalPlayerUI(null);
+                return null;
+            }
+        }
+        async function saveExternalPlayerSettings() {
+            const sel = document.getElementById('externalPlayerSelect');
+            const input = document.getElementById('externalPlayerPath');
+            const choice = sel ? sel.value : 'default';
+            const customPath = input ? input.value.trim() : '';
+            if (choice === 'custom' && !customPath) { alert('请填写自定义播放器 .exe 的完整路径。'); return; }
+            try {
+                const data = await helperJson('/set-player?name=' + encodeURIComponent(choice) + '&path=' + encodeURIComponent(customPath));
+                externalPlayerChoice = choice;
+                externalPlayerPath = customPath;
+                localStorage.setItem('ZIH_external_player', choice);
+                localStorage.setItem('ZIH_external_player_path', customPath);
+                setExternalPlayerUI(data.status || null);
+                alert('🎬 外接播放器设置已保存：' + (data.player || choice));
+            } catch (e) {
+                alert((e.message || helperErrorText()) + '\n\n请确认「启动系统播放器助手.bat」正在运行。');
+            }
+        }
         async function openLocalVideoInSystemPlayer(item) {
             if (!item || !item.localFile) return false;
             const rel = item.relativePath || item.fileName || '';
             if (!rel) { alert('找不到本地视频路径，请重新扫描本地云盘。'); return false; }
             try {
-                const r = await fetch(SYSTEM_PLAYER_HELPER + '/open?path=' + encodeURIComponent(rel), { cache: 'no-store' });
-                if (!r.ok) throw new Error('助手未运行或返回错误');
-                const data = await r.json();
-                if (!data.ok) throw new Error(data.message || '打开失败');
+                await helperJson('/open?path=' + encodeURIComponent(rel) + '&player=default');
                 return true;
             } catch (e) {
-                alert('无法启动系统播放器助手。\n\n请先双击网站压缩包里的「启动系统播放器助手.bat」，选择你的本地云盘文件夹。\n\n启动后再点击「🖥️ 系统播放器」。\n\n说明：这样视频会直接交给 Windows 默认播放器，不经过 Chrome 的视频解码。');
+                alert((e.message || helperErrorText()) + '\n\n现在建议使用「🎬 外接播放器」，它不依赖 Windows 文件关联。');
+                return false;
+            }
+        }
+        async function openLocalVideoInExternalPlayer(item) {
+            if (!item || !item.localFile) return false;
+            const rel = item.relativePath || item.fileName || '';
+            if (!rel) return false;
+            try {
+                await helperJson('/open?path=' + encodeURIComponent(rel) + '&player=' + encodeURIComponent(externalPlayerChoice));
+                return true;
+            } catch (e) {
+                const st = await refreshExternalPlayerSettings();
+                if (st && st.players && st.players[externalPlayerChoice]) {
+                    alert('外接播放器启动失败：' + e.message);
+                } else {
+                    alert('未找到所选播放器。\n\n请在「☁️ 云盘 → 🎬 外接播放器」里选择 VLC / PotPlayer / MPC-HC / mpv，或填写播放器 .exe 完整路径。');
+                }
+                return false;
+            }
+        }
+        async function transcodeLocalVideo(item, onDone) {
+            if (!item || !item.localFile) return false;
+            const rel = item.relativePath || item.fileName || '';
+            if (!rel) return false;
+            try {
+                const job = await helperJson('/transcode?path=' + encodeURIComponent(rel));
+                if (!job.jobId) throw new Error('未创建转码任务');
+                const loading = document.querySelector('.local-video-loading');
+                if (loading) loading.textContent = '🔄 正在自动转码为 MP4…';
+                let lastState = '';
+                for (let i = 0; i < 1800; i++) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    const st = await helperJson('/job?id=' + encodeURIComponent(job.jobId));
+                    if (st.state !== lastState) { lastState = st.state; if (loading && st.message) loading.textContent = '🔄 ' + st.message; }
+                    if (st.state === 'done') {
+                        localStorage.setItem('ZIH_transcode_' + item.id, st.url || '');
+                        if (onDone) await onDone(st.url);
+                        return true;
+                    }
+                    if (st.state === 'error') throw new Error(st.message || '转码失败');
+                }
+                throw new Error('转码等待时间过长，请稍后查看缓存文件。');
+            } catch (e) {
+                alert('自动转码失败：' + (e.message || e) + '\n\n请确认已安装 FFmpeg，或直接使用 VLC / PotPlayer / MPC-HC / mpv。');
                 return false;
             }
         }
         window.openLocalVideoInSystemPlayer = openLocalVideoInSystemPlayer;
+        window.openLocalVideoInExternalPlayer = openLocalVideoInExternalPlayer;
+        window.transcodeLocalVideo = transcodeLocalVideo;
 
         // ----- 媒体预览：点击放大 + 全屏 -----
         let currentMediaEl = null;
@@ -1277,8 +1376,12 @@
             const title = document.getElementById('mediaModalTitle');
             const fsBtn = document.getElementById('mediaFullscreenBtn');
             const systemBtn = document.getElementById('mediaSystemPlayerBtn');
+            const externalBtn = document.getElementById('mediaExternalPlayerBtn');
+            const transcodeBtn = document.getElementById('mediaTranscodeBtn');
             const tip = document.querySelector('.media-modal-tip');
             if (systemBtn) { systemBtn.style.display = 'none'; systemBtn.dataset.mediaId = ''; }
+            if (externalBtn) { externalBtn.style.display = 'none'; externalBtn.dataset.mediaId = ''; }
+            if (transcodeBtn) { transcodeBtn.style.display = 'none'; transcodeBtn.dataset.mediaId = ''; }
             title.textContent = item.title || (item.type === 'bilibili' ? 'B站视频' : item.type === 'cloud' ? (item.pan || '云盘链接') : item.type === 'video' ? '视频预览' : '图片预览');
             body.innerHTML = '';
             currentMediaEl = null;
@@ -1338,7 +1441,11 @@
 
                 const applySource = async () => {
                     let src = item.url || '';
-                    if (item.localFile) src = await getLocalFileUrl(item);
+                    if (item.localFile) {
+                        const cachedTranscode = localStorage.getItem('ZIH_transcode_' + item.id) || '';
+                        if (cachedTranscode) src = cachedTranscode;
+                        else src = await getLocalFileUrl(item);
+                    }
                     if (!src) {
                         loading.textContent = '⚠️ 无法读取本地视频，请重新连接云盘文件夹';
                         return;
@@ -1373,6 +1480,14 @@
                 if (systemBtn) {
                     systemBtn.style.display = item.localFile ? 'inline-flex' : 'none';
                     systemBtn.dataset.mediaId = item.localFile ? String(item.id) : '';
+                }
+                if (externalBtn) {
+                    externalBtn.style.display = item.localFile ? 'inline-flex' : 'none';
+                    externalBtn.dataset.mediaId = item.localFile ? String(item.id) : '';
+                }
+                if (transcodeBtn) {
+                    transcodeBtn.style.display = item.localFile ? 'inline-flex' : 'none';
+                    transcodeBtn.dataset.mediaId = item.localFile ? String(item.id) : '';
                 }
                 if (tip) tip.textContent = item.localFile
                     ? `本地云盘 · ${item.size ? formatFileSize(item.size) : '大文件'} · 仅加载当前视频`
@@ -1444,6 +1559,25 @@
                 const item = getImages().find(i => i.id === id);
                 if (item) await openLocalVideoInSystemPlayer(item);
             });
+            document.getElementById('mediaExternalPlayerBtn')?.addEventListener('click', async function() {
+                const id = this.dataset.mediaId ? Number(this.dataset.mediaId) : 0;
+                const item = getImages().find(i => i.id === id);
+                if (item) await openLocalVideoInExternalPlayer(item);
+            });
+            document.getElementById('mediaTranscodeBtn')?.addEventListener('click', async function() {
+                const id = this.dataset.mediaId ? Number(this.dataset.mediaId) : 0;
+                const item = getImages().find(i => i.id === id);
+                if (!item) return;
+                this.disabled = true;
+                this.textContent = '🔄 转码中…';
+                await transcodeLocalVideo(item, async (url) => {
+                    const v = document.querySelector('#mediaModalBody video');
+                    if (v && url) { v.src = url; v.load(); v.play().catch(()=>{}); }
+                });
+                this.disabled = false;
+                this.textContent = '🔄 自动转码';
+            });
+            document.getElementById('saveExternalPlayerBtn')?.addEventListener('click', saveExternalPlayerSettings);
             modal.addEventListener('click', function(e) {
                 if (e.target === modal) closeMediaViewer();
             });
@@ -1710,6 +1844,7 @@
         window.closeCloudModal = closeCloudModal;
 
         (function bindLocalCloud() {
+            refreshExternalPlayerSettings();
             const choose = document.getElementById('chooseCloudFolderBtn');
             const clear = document.getElementById('clearCloudFolderBtn');
             if (choose) choose.addEventListener('click', chooseLocalCloudFolder);
@@ -2024,8 +2159,86 @@
         function deleteGroup(id) {
             if (!confirm('确定删除这个社群？')) return;
             saveGroups(getGroups().filter(i => i.id !== id));
+            if (activeChatGroupId === id) activeChatGroupId = null;
+            saveChatMessages(getChatMessages().filter(m => m.groupId !== id));
             renderGroups();
+            renderChatList();
+            if (!activeChatGroupId) renderActiveChat();
         }
+
+        // ============================================================
+        // 本地群聊系统：创建群组 + 群聊 + 本地聊天记录
+        // ============================================================
+        const CHAT_KEY = 'ZIH_group_chat_v1';
+        const CHAT_NAME_KEY = 'ZIH_chat_name';
+        let activeChatGroupId = null;
+
+        function getChatMessages() {
+            try { return JSON.parse(localStorage.getItem(CHAT_KEY) || '[]'); } catch (_) { return []; }
+        }
+        function saveChatMessages(list) { localStorage.setItem(CHAT_KEY, JSON.stringify(list)); }
+        function escapeChat(s) {
+            return String(s || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        }
+        function renderChatList() {
+            const box = document.getElementById('chat-list');
+            if (!box) return;
+            const groups = getGroups();
+            if (!groups.length) { box.innerHTML = '<div class="chat-list-empty">还没有群组<br><small>点击「创建群组」开始</small></div>'; return; }
+            box.innerHTML = groups.map(g => {
+                const icon = GROUP_ICONS[g.type] || '👥';
+                const count = getChatMessages().filter(m => m.groupId === g.id).length;
+                return `<button type="button" class="chat-list-item ${activeChatGroupId === g.id ? 'active' : ''}" data-chat-group="${g.id}">
+                    <span class="chat-avatar">${icon}</span><span class="chat-list-copy"><strong>${escapeChat(g.name)}</strong><small>${count ? count + ' 条消息' : '暂无消息'}</small></span>
+                </button>`;
+            }).join('');
+            box.querySelectorAll('[data-chat-group]').forEach(btn => btn.addEventListener('click', () => {
+                activeChatGroupId = Number(btn.dataset.chatGroup);
+                renderChatList(); renderActiveChat();
+            }));
+        }
+        function renderActiveChat() {
+            const empty = document.getElementById('chat-empty');
+            const active = document.getElementById('chat-active');
+            if (!empty || !active) return;
+            const group = getGroups().find(g => g.id === activeChatGroupId);
+            if (!group) { empty.style.display='flex'; active.style.display='none'; return; }
+            empty.style.display='none'; active.style.display='flex'; active.style.flexDirection='column';
+            document.getElementById('chat-title').textContent = (GROUP_ICONS[group.type] || '👥') + ' ' + group.name;
+            document.getElementById('chat-meta').textContent = group.desc || (GROUP_LABELS[group.type] || '本地群组');
+            const nameInput = document.getElementById('chatName');
+            if (nameInput) nameInput.value = localStorage.getItem(CHAT_NAME_KEY) || '';
+            const box = document.getElementById('chat-messages');
+            const messages = getChatMessages().filter(m => m.groupId === group.id);
+            box.innerHTML = messages.length ? messages.map(m => `<div class="chat-message"><div class="chat-message-top"><strong>${escapeChat(m.name || '访客')}</strong><time>${escapeChat(m.time)}</time></div><div>${escapeChat(m.content)}</div></div>`).join('') : '<div class="chat-no-messages">还没有消息，来发第一句话吧 👋</div>';
+            box.scrollTop = box.scrollHeight;
+        }
+        function initSocialChat() {
+            document.querySelectorAll('.social-tab').forEach(btn => btn.addEventListener('click', () => {
+                document.querySelectorAll('.social-tab').forEach(x => x.classList.toggle('active', x === btn));
+                document.getElementById('socialGroupsPanel')?.classList.toggle('active', btn.dataset.social === 'groups');
+                document.getElementById('socialChatPanel')?.classList.toggle('active', btn.dataset.social === 'chat');
+                if (btn.dataset.social === 'chat') { renderChatList(); renderActiveChat(); }
+            }));
+            document.getElementById('chatForm')?.addEventListener('submit', e => {
+                e.preventDefault();
+                if (!activeChatGroupId) return;
+                const input = document.getElementById('chatInput');
+                const nameInput = document.getElementById('chatName');
+                const content = input.value.trim(); const name = nameInput.value.trim() || '访客';
+                if (!content) return;
+                localStorage.setItem(CHAT_NAME_KEY, name);
+                const list = getChatMessages();
+                list.push({ id: Date.now()+Math.floor(Math.random()*1000), groupId: activeChatGroupId, name, content, time: new Date().toLocaleString('zh-CN',{hour12:false}) });
+                saveChatMessages(list); input.value=''; renderChatList(); renderActiveChat();
+            });
+            document.getElementById('chatClearBtn')?.addEventListener('click', () => {
+                if (!activeChatGroupId || !confirm('清空这个群组的本地聊天记录？')) return;
+                saveChatMessages(getChatMessages().filter(m => m.groupId !== activeChatGroupId)); renderChatList(); renderActiveChat();
+            });
+            document.getElementById('closeChatBtn')?.addEventListener('click', () => closeModal('chatModal'));
+        }
+        initSocialChat();
         window.deleteTieba = deleteTieba;
         window.deleteGroup = deleteGroup;
 
@@ -2760,7 +2973,7 @@
             iconSearch.classList.toggle('active-icon', tabId === 'blog');
             iconGrid.classList.toggle('active-icon', tabId === 'gallery');
             if (tabId === 'gallery') renderGallery();
-            if (tabId === 'personal') { renderComments(); renderTieba(); renderGroups(); }
+            if (tabId === 'personal') { renderComments(); renderTieba(); renderGroups(); renderChatList(); renderActiveChat(); }
             if (tabId === 'about') renderContacts();
             if (tabId === 'links') renderFriendLinks();
             if (fromIcon) {
