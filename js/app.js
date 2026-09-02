@@ -1240,6 +1240,13 @@
         let currentMediaEl = null;
 
         async function openMediaViewer(id) {
+            // V4 直连播放：视频卡片点击后直接交给“网页播放助手”，
+            // 不再先打开旧的媒体预览弹窗、再手动点击“网页播放助手”。
+            let directItem = getImages().find(i => i.id === id);
+            if (directItem && directItem.type === 'video' && window.openWebPlayerForItem) {
+                await window.openWebPlayerForItem(directItem);
+                return;
+            }
             let all = getImages();
             if (galleryMediaFilter && galleryMediaFilter !== 'all') {
                 all = all.filter(i => (i.type || 'image') === galleryMediaFilter);

@@ -49,7 +49,7 @@
     }
     if (!src) { setInfo('⚠️ 无法读取这个文件，请重新连接本地云盘。'); return; }
     renderMedia(src, item.title || item.fileName || '媒体文件', item.mime || '');
-    setInfo('☁️ ' + (item.localFile ? '本地云盘文件已载入当前浏览器。' : '远程媒体已载入。') + ' 不需要 Windows 播放助手。');
+    setInfo('🎬 已直接交给网页播放助手：' + (item.title || item.fileName || '媒体文件') + ' · 不需要 Windows 播放助手。');
     const box = qs('webPlayerBox');
     if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
