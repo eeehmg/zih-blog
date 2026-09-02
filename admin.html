@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>后台管理 · ZIH</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f4f6f8;color:#18212f}.top{height:64px;background:#111827;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 22px}.top strong{font-size:19px}.top a{color:#cbd5e1;text-decoration:none;margin-left:16px;font-size:13px}.layout{display:flex;min-height:calc(100vh - 64px)}aside{width:230px;background:#fff;border-right:1px solid #e5e7eb;padding:18px 12px}aside button{width:100%;text-align:left;border:0;background:transparent;padding:12px 14px;border-radius:9px;color:#526174;cursor:pointer;margin-bottom:4px}aside button.active,aside button:hover{background:#eef2ff;color:#3730a3}main{flex:1;padding:24px;max-width:1250px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{background:#fff;border:1px solid #e6e9ee;border-radius:14px;padding:18px}.stat small{color:#7b8798}.stat b{display:block;font-size:27px;margin-top:7px}.panel{background:#fff;border:1px solid #e6e9ee;border-radius:14px;padding:18px;margin-top:18px}.panel h2{margin:0 0 14px;font-size:17px}.row{display:flex;gap:10px;align-items:center;justify-content:space-between;border-top:1px solid #edf0f3;padding:13px 0}.btn{border:0;border-radius:8px;padding:8px 12px;cursor:pointer;background:#111827;color:#fff}.muted{color:#7b8798;font-size:13px}@media(max-width:760px){aside{display:none}.grid{grid-template-columns:repeat(2,1fr)}main{padding:15px}.top{padding:0 14px}}
+</style>
+</head>
+<body>
+<header class="top"><strong>ZIH · 后台管理</strong><nav><a href="index.html">返回网站</a><a href="#" onclick="logout()">退出</a></nav></header>
+<div class="layout">
+<aside>
+<button class="active">数据总览</button><button onclick="alert('演示版：作品管理模块已预留')">作品管理</button><button onclick="alert('演示版：用户管理模块已预留')">用户管理</button><button onclick="alert('演示版：评论管理模块已预留')">评论管理</button><button onclick="alert('演示版：文件/云盘模块已预留')">文件 / 云盘</button><button onclick="alert('演示版：网站设置模块已预留')">网站设置</button>
+</aside>
+<main>
+<h1 style="margin:0 0 6px">数据总览</h1><div class="muted">GitHub Pages 静态版后台入口</div>
+<section class="grid" style="margin-top:18px"><div class="stat"><small>本地账号</small><b id="users">0</b></div><div class="stat"><small>作品</small><b>—</b></div><div class="stat"><small>评论</small><b>—</b></div><div class="stat"><small>文件</small><b>—</b></div></section>
+<section class="panel"><h2>当前管理员</h2><div class="row"><span id="who">检查中…</span><span class="muted">管理员权限</span></div></section>
+<section class="panel"><h2>下一阶段</h2><div class="row"><span>接入真实数据库 / 云端登录</span><span class="muted">可后续升级</span></div><div class="row"><span>作品、漫画章节、图片、评论、用户管理</span><span class="muted">可继续开发</span></div></section>
+</main></div>
+<script>
+const s=JSON.parse(localStorage.getItem('zih_session_v1')||'null'),a=JSON.parse(localStorage.getItem('zih_accounts_v1')||'{}');
+if(!s){location.href='login.html'}else{document.getElementById('who').textContent=s.username+'（'+s.role+'）';document.getElementById('users').textContent=Object.keys(a).length}
+function logout(){localStorage.removeItem('zih_session_v1');location.href='login.html'}
+</script>
+</body>
+</html>

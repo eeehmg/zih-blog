@@ -855,5 +855,15 @@
     <script src="js/app.js"></script>
 
 
+
+<!-- ZIH GitHub Pages 登录/后台桥接 -->
+<script>
+(function(){
+  const s=JSON.parse(localStorage.getItem('zih_session_v1')||'null');
+  window.ZIH_SESSION=s;
+  window.ZIH_LOGOUT=function(){localStorage.removeItem('zih_session_v1');location.href='login.html'};
+})();
+</script>
+
 </body>
 </html>

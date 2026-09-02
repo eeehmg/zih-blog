@@ -3998,15 +3998,16 @@
         // 移动端底部导航
         // ============================================================
         document.querySelectorAll('.bottom-nav .bnav-item').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
                 const tab = this.dataset.tab;
-                if (tab) {
-                    showTab(tab, false);
-                    document.querySelectorAll('.bottom-nav .bnav-item').forEach(b => {
-                        b.classList.toggle('active', b.dataset.tab === tab);
-                    });
-                }
-            });
+                if (!tab) return;
+                showTab(tab, false);
+                document.querySelectorAll('.bottom-nav .bnav-item').forEach(b => {
+                    b.classList.toggle('active', b.dataset.tab === tab);
+                });
+            }, { passive: false });
         });
         // 同步底部导航高亮
         const _origShowTab = showTab;
@@ -4020,7 +4021,7 @@
                 });
             }
         });
-        document.querySelectorAll('#blog-content, #gallery, #personal, #about').forEach(el => {
+        document.querySelectorAll('#blog-content, #gallery, #personal, #about, #links').forEach(el => {
             if (el) navSync.observe(el, { attributes: true, attributeFilter: ['class'] });
         });
 
