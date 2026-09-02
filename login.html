@@ -36,11 +36,12 @@ label{display:block;font-size:13px;color:#aeb9c8;margin:14px 0 7px}input{width:1
 </div>
 <script>
 const KEY='zih_accounts_v1', SESSION='zih_session_v1';
+function goBack(){const p=new URLSearchParams(location.search).get('returnTo');location.href=p?decodeURIComponent(p):'index.html'}
 function accounts(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}}
 function message(t,err=false){const m=document.getElementById('msg');m.textContent=t;m.className='msg'+(err?' error':'');m.style.display='block'}
 function show(type){document.getElementById('loginForm').style.display=type==='login'?'block':'none';document.getElementById('registerForm').style.display=type==='register'?'block':'none';document.getElementById('loginTab').className=type==='login'?'active':'';document.getElementById('regTab').className=type==='register'?'active':'';document.getElementById('msg').style.display='none'}
-document.getElementById('registerForm').onsubmit=e=>{e.preventDefault();const u=regUser.value.trim(),p=regPass.value,a=accounts();if(!u||p.length<4)return message('请输入用户名，并设置至少 4 位密码。',true);if(a[u])return message('这个用户名已经存在。',true);a[u]={password:p,role:u==='admin'?'admin':'user',createdAt:Date.now()};localStorage.setItem(KEY,JSON.stringify(a));localStorage.setItem(SESSION,JSON.stringify({username:u,role:a[u].role}));location.href='index.html'};
-document.getElementById('loginForm').onsubmit=e=>{e.preventDefault();const u=loginUser.value.trim(),p=loginPass.value,a=accounts();if(!a[u])return message('账号不存在，请先注册。',true);if(a[u].password!==p)return message('密码不正确。',true);localStorage.setItem(SESSION,JSON.stringify({username:u,role:a[u].role}));location.href='index.html'};
+document.getElementById('registerForm').onsubmit=e=>{e.preventDefault();const u=regUser.value.trim(),p=regPass.value,a=accounts();if(!u||p.length<4)return message('请输入用户名，并设置至少 4 位密码。',true);if(a[u])return message('这个用户名已经存在。',true);a[u]={password:p,role:u==='admin'?'admin':'user',createdAt:Date.now()};localStorage.setItem(KEY,JSON.stringify(a));localStorage.setItem(SESSION,JSON.stringify({username:u,role:a[u].role}));goBack()};
+document.getElementById('loginForm').onsubmit=e=>{e.preventDefault();const u=loginUser.value.trim(),p=loginPass.value,a=accounts();if(!a[u])return message('账号不存在，请先注册。',true);if(a[u].password!==p)return message('密码不正确。',true);localStorage.setItem(SESSION,JSON.stringify({username:u,role:a[u].role}));goBack()};
 </script>
 </body>
 </html>
