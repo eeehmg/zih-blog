@@ -17,7 +17,7 @@
       <div class="web-direct-backdrop"></div>
       <div class="web-direct-dialog" role="dialog" aria-modal="true" aria-label="网页播放助手">
         <div class="web-direct-head">
-          <div><strong>🎬 网页播放助手</strong><span id="webDirectTitle">正在准备视频…</span></div>
+          <div><strong>🎬 网页播放助手</strong><span id="webDirectTitle">上传完成，正在播放…</span></div>
           <button type="button" id="webDirectClose" aria-label="关闭">✕</button>
         </div>
         <div class="web-direct-screen" id="webDirectScreen">

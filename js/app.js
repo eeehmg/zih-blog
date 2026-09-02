@@ -1469,7 +1469,7 @@
             return `${n >= 10 || i === 0 ? n.toFixed(0) : n.toFixed(1)} ${units[i]}`;
         }
 
-        function handleMediaUpload(files, mediaType) {
+        function handleMediaUpload(files, mediaType, onSaved) {
             if (!files || !files.length) return;
             const images = getImages();
             const validFiles = [];
@@ -1497,12 +1497,14 @@
                         const saved = await writeFileToLocalCloud(file);
                         if (saved) {
                             const id = genImageId();
-                            images.push({
+                            const savedItem = {
                                 id, url: '', title: file.name.replace(/\.[^.]+$/, ''),
                                 desc: `来自 ${saved.folderName}`, type: mediaType, localFile: true,
                                 fileName: saved.fileName, folderName: saved.folderName, size: file.size, mimeType: file.type
-                            });
+                            };
+                            images.push(savedItem);
                             if (saved.fileHandle) await saveLocalFileHandle(id, saved.fileHandle);
+                            if (typeof onSaved === 'function' && mediaType === 'video') onSaved(savedItem);
                             loaded++;
                             if (loaded === total) { saveImages(images); renderGallery(); }
                             return;
@@ -1516,7 +1518,9 @@
                     const reader = new FileReader();
                     reader.onload = function(ev) {
                         const dataUrl = ev.target.result;
-                        images.push({ id: genImageId(), url: dataUrl, title: file.name.replace(/\.[^.]+$/, ''), desc: '', type: mediaType, size: file.size, mimeType: file.type });
+                        const savedItem = { id: genImageId(), url: dataUrl, title: file.name.replace(/\.[^.]+$/, ''), desc: '', type: mediaType, size: file.size, mimeType: file.type };
+                        images.push(savedItem);
+                        if (typeof onSaved === 'function' && mediaType === 'video') onSaved(savedItem);
                         loaded++;
                         if (loaded === total) { try { saveImages(images); renderGallery(); } catch (_) {} }
                     };
@@ -1547,7 +1551,18 @@
                 videoInput.click();
             });
             videoInput.addEventListener('change', function(e) {
-                handleMediaUpload(e.target.files, 'video');
+                // V4.1：把「上传视频」与「网页播放助手」合并。
+                // 选择视频后先正常保存到图集/本地云盘，再直接交给网页播放助手，
+                // 不需要用户再点一次“网页播放助手”。
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
+                const firstVideo = files.find(f => f.type.startsWith('video/') || isVideoName(f.name));
+                handleMediaUpload(files, 'video', function(savedItem) {
+                    const item = savedItem || firstVideo;
+                    if (item && item.type === 'video' && window.openWebPlayerForItem) {
+                        window.openWebPlayerForItem(item);
+                    }
+                });
                 videoInput.value = '';
             });
         }
