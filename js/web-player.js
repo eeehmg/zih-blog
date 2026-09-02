@@ -1,32 +1,58 @@
-/* ZIH V4 · 网页播放助手 */
+/* ZIH V4 · 网页播放助手（直连版） */
 (function () {
   'use strict';
   let currentObjectUrl = '';
   let currentItem = null;
+  let directOverlay = null;
 
   function qs(id) { return document.getElementById(id); }
   function revokeCurrentUrl() {
     if (currentObjectUrl) { URL.revokeObjectURL(currentObjectUrl); currentObjectUrl = ''; }
   }
-  function setInfo(text) { const el = qs('webPlayerInfo'); if (el) el.textContent = text; }
-  function renderMedia(src, name, mime) {
-    const screen = qs('webPlayerScreen');
-    if (!screen || !src) return;
+  function ensureDirectOverlay() {
+    if (directOverlay && directOverlay.isConnected) return directOverlay;
+    directOverlay = document.createElement('div');
+    directOverlay.id = 'webPlayerDirectOverlay';
+    directOverlay.innerHTML = `
+      <div class="web-direct-backdrop"></div>
+      <div class="web-direct-dialog" role="dialog" aria-modal="true" aria-label="网页播放助手">
+        <div class="web-direct-head">
+          <div><strong>🎬 网页播放助手</strong><span id="webDirectTitle">正在准备视频…</span></div>
+          <button type="button" id="webDirectClose" aria-label="关闭">✕</button>
+        </div>
+        <div class="web-direct-screen" id="webDirectScreen">
+          <div class="web-player-empty">🎬<br><span>正在准备播放…</span></div>
+        </div>
+        <div class="web-direct-foot" id="webDirectInfo">浏览器内直接播放 · 不需要 Windows 播放助手</div>
+      </div>`;
+    document.body.appendChild(directOverlay);
+    directOverlay.querySelector('#webDirectClose').addEventListener('click', closeDirectPlayer);
+    directOverlay.querySelector('.web-direct-backdrop').addEventListener('click', closeDirectPlayer);
+    return directOverlay;
+  }
+  function setInfo(text) {
+    const el = qs('webPlayerInfo'); if (el) el.textContent = text;
+    const de = document.getElementById('webDirectInfo'); if (de) de.textContent = text;
+  }
+  function renderMedia(src, name, mime, target) {
+    const screen = target || qs('webPlayerScreen');
+    if (!screen || !src) return null;
     screen.innerHTML = '';
     const isAudio = (mime || '').startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac|flac)(?:$|\?)/i.test(name || '');
     const el = document.createElement(isAudio ? 'audio' : 'video');
     el.controls = true;
-    el.autoplay = false;
+    el.autoplay = true;
     el.playsInline = true;
     el.preload = 'metadata';
     el.src = src;
     if (mime) el.setAttribute('type', mime);
     el.addEventListener('error', function () {
-      setInfo('⚠️ 浏览器无法解码这个文件。建议使用 MP4（H.264 + AAC）或 WebM；这不是播放器助手连接问题。');
+      setInfo('⚠️ 浏览器无法解码这个文件。建议使用 MP4（H.264 + AAC）或 WebM。');
     });
-    el.addEventListener('loadedmetadata', function () { setInfo('▶ 已加载：' + (name || '媒体文件')); });
+    el.addEventListener('loadedmetadata', function () { setInfo('▶ 正在播放：' + (name || '媒体文件')); });
     screen.appendChild(el);
     el.play().catch(function () {});
+    return el;
   }
   async function playFile(file) {
     if (!file) return;
@@ -38,20 +64,42 @@
   }
   async function playItem(item) {
     if (!item) return;
-    const modal = qs('cloudModal');
-    if (modal) modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
     currentItem = item;
     revokeCurrentUrl();
     let src = item.url || '';
     if (item.localFile && window.getLocalFileUrl) {
       try { src = await window.getLocalFileUrl(item); } catch (_) { src = ''; }
     }
-    if (!src) { setInfo('⚠️ 无法读取这个文件，请重新连接本地云盘。'); return; }
-    renderMedia(src, item.title || item.fileName || '媒体文件', item.mime || '');
-    setInfo('🎬 已直接交给网页播放助手：' + (item.title || item.fileName || '媒体文件') + ' · 不需要 Windows 播放助手。');
-    const box = qs('webPlayerBox');
-    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!src) {
+      alert('无法读取这个视频。请重新连接本地云盘文件夹，并确认文件没有被移动或删除。');
+      return;
+    }
+    const overlay = ensureDirectOverlay();
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    const title = document.getElementById('webDirectTitle');
+    if (title) title.textContent = item.title || item.fileName || '视频';
+    const screen = document.getElementById('webDirectScreen');
+    const mime = item.mimeType || item.mime || '';
+    renderMedia(src, item.title || item.fileName || '媒体文件', mime, screen);
+    setInfo('🎬 已直接播放：' + (item.title || item.fileName || '媒体文件') + ' · 网页播放助手');
+  }
+  function openWebPlayerForItemById(id) {
+    const list = typeof window.getImages === 'function' ? window.getImages() : [];
+    const item = list.find(i => Number(i.id) === Number(id));
+    if (!item) { alert('找不到这个视频，请刷新页面后重试。'); return; }
+    if (item.type !== 'video') return;
+    return playItem(item);
+  }
+  function closeDirectPlayer() {
+    const overlay = document.getElementById('webPlayerDirectOverlay');
+    if (!overlay) return;
+    const v = overlay.querySelector('video,audio');
+    if (v) { try { v.pause(); } catch (_) {} v.removeAttribute('src'); try { v.load(); } catch (_) {} }
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+    revokeCurrentUrl();
+    currentItem = null;
   }
   function playUrl() {
     const input = qs('webPlayerUrlInput');
@@ -77,8 +125,11 @@
     if (clear) clear.addEventListener('click', clearPlayer);
     const input = qs('webPlayerUrlInput');
     if (input) input.addEventListener('keydown', function (e) { if (e.key === 'Enter') playUrl(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDirectPlayer(); });
   }
   window.openWebPlayerForItem = playItem;
+  window.openWebPlayerForItemById = openWebPlayerForItemById;
+  window.closeWebDirectPlayer = closeDirectPlayer;
   window.clearWebPlayer = clearPlayer;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind); else bind();
 })();

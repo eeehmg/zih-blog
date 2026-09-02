@@ -3572,3 +3572,18 @@
 
 /* V4: 彻底隐藏旧版外接播放器按钮 */
 .media-system-btn,.media-external-btn,.media-transcode-btn,.external-player-box{display:none!important}
+
+/* ===== V4 网页播放助手：视频卡片直达播放层 ===== */
+#webPlayerDirectOverlay{position:fixed;inset:0;z-index:2500;display:none;align-items:center;justify-content:center;padding:18px;box-sizing:border-box}
+#webPlayerDirectOverlay.active{display:flex}
+#webPlayerDirectOverlay .web-direct-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.78)}
+#webPlayerDirectOverlay .web-direct-dialog{position:relative;width:min(960px,96vw);max-height:92vh;overflow:hidden;border-radius:18px;background:#0d0f13;color:#fff;box-shadow:0 24px 80px rgba(0,0,0,.45);display:flex;flex-direction:column}
+#webPlayerDirectOverlay .web-direct-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#151820;border-bottom:1px solid rgba(255,255,255,.08)}
+#webPlayerDirectOverlay .web-direct-head strong{display:block;font-size:15px}
+#webPlayerDirectOverlay .web-direct-head span{display:block;margin-top:3px;font-size:12px;color:rgba(255,255,255,.62);max-width:70vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#webPlayerDirectOverlay #webDirectClose{width:36px;height:36px;border:0;border-radius:10px;background:rgba(255,255,255,.08);color:#fff;font-size:20px;cursor:pointer}
+#webPlayerDirectOverlay .web-direct-screen{min-height:260px;max-height:72vh;display:flex;align-items:center;justify-content:center;background:#050608}
+#webPlayerDirectOverlay .web-direct-screen video,#webPlayerDirectOverlay .web-direct-screen audio{display:block;width:100%;max-height:72vh;background:#000}
+#webPlayerDirectOverlay .web-direct-screen audio{max-width:720px;margin:80px auto}
+#webPlayerDirectOverlay .web-direct-foot{padding:10px 16px;font-size:12px;color:rgba(255,255,255,.62);background:#151820}
+@media(max-width:600px){#webPlayerDirectOverlay{padding:0}#webPlayerDirectOverlay .web-direct-dialog{width:100vw;max-height:100vh;height:100vh;border-radius:0}#webPlayerDirectOverlay .web-direct-screen{flex:1;max-height:none;min-height:0}#webPlayerDirectOverlay .web-direct-screen video{max-height:80vh}#webPlayerDirectOverlay .web-direct-head{padding:10px 12px}}

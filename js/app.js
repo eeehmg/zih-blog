@@ -1215,7 +1215,7 @@
                        <span class="media-badge">📷 图片</span>${img.localFile ? '<span class="gallery-local-badge">💻 本地云盘</span>' : ''}`;
                 }
                 html += `
-                    <div class="gallery-item" data-id="${img.id}" data-type="${t}" onclick="openMediaViewer(${img.id})">
+                    <div class="gallery-item" data-id="${img.id}" data-type="${t}" onclick="${t === 'video' ? 'openWebPlayerForItemById(' + img.id + '); return false;' : 'openMediaViewer(' + img.id + ')'}">
                         ${mediaHtml}
                         <button type="button" class="gallery-delete-btn" onclick="event.preventDefault();event.stopPropagation();deleteImage(${img.id})" title="删除${t === 'video' ? '视频' : '内容'}" aria-label="删除">🗑️</button>
                         <div class="caption">
