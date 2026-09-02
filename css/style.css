@@ -3520,3 +3520,12 @@
 .chat-compose input:focus { border-color:var(--teal); } .chat-compose button { border:0;background:var(--teal);color:#fff;border-radius:9px;padding:0 16px;cursor:pointer;font-family:inherit;font-weight:600; }
 .chat-modal { max-width:700px; } .chat-modal-body { min-height:180px; }
 @media (max-width:700px) { .chat-layout { grid-template-columns:1fr; } .chat-list { border-right:0;border-bottom:1px solid var(--line);max-height:160px;display:flex;gap:5px;overflow:auto; } .chat-list-item { min-width:180px; } .chat-compose { grid-template-columns:90px minmax(0,1fr); } .chat-compose button { grid-column:1/-1; min-height:38px; } }
+
+/* ===== 统一聊天中心：访客大厅 + 群组 ===== */
+.chat-center-layout { min-height: 520px; }
+.chat-center-layout .chat-list { background: color-mix(in srgb, var(--panel) 55%, transparent); }
+.chat-room-badge { margin-left:auto; align-self:flex-start; font-size:10px; padding:3px 6px; border-radius:999px; background:var(--teal); color:#fff; white-space:nowrap; }
+.chat-head-actions { display:flex; align-items:center; gap:6px; }
+.chat-message.mine { margin-left:auto; }
+.chat-center-tip { margin-top:10px; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; color:var(--ink-faint); font-size:12px; line-height:1.6; background:var(--bg); }
+@media(max-width:700px){ .chat-center-layout { min-height:560px; } .chat-room-badge { display:none; } .chat-head-actions { flex-wrap:wrap; justify-content:flex-end; } }

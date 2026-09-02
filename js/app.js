@@ -2011,7 +2011,7 @@
 
         document.getElementById('cancelReplyBtn')?.addEventListener('click', cancelReply);
 
-        document.getElementById('submitCommentBtn').addEventListener('click', function() {
+        document.getElementById('submitCommentBtn')?.addEventListener('click', function() {
             const name = document.getElementById('commentName').value.trim();
             const content = document.getElementById('commentContent').value.trim();
             if (!name || !content) { alert('请填写昵称和评论内容'); return; }
@@ -2163,37 +2163,71 @@
             saveChatMessages(getChatMessages().filter(m => m.groupId !== id));
             renderGroups();
             renderChatList();
-            if (!activeChatGroupId) renderActiveChat();
+            renderActiveChat();
         }
 
         // ============================================================
-        // 本地群聊系统：创建群组 + 群聊 + 本地聊天记录
+        // 个人页统一聊天中心：访客大厅 + 群组 + 群聊
         // ============================================================
-        const CHAT_KEY = 'ZIH_group_chat_v1';
+        const CHAT_KEY = 'ZIH_group_chat_v2';
+        const OLD_CHAT_KEY = 'ZIH_group_chat_v1';
         const CHAT_NAME_KEY = 'ZIH_chat_name';
-        let activeChatGroupId = null;
+        const GUEST_ROOM_ID = 'visitor';
+        let activeChatGroupId = GUEST_ROOM_ID;
 
         function getChatMessages() {
-            try { return JSON.parse(localStorage.getItem(CHAT_KEY) || '[]'); } catch (_) { return []; }
+            try {
+                const current = JSON.parse(localStorage.getItem(CHAT_KEY) || '[]');
+                if (current.length) return current;
+                const old = JSON.parse(localStorage.getItem(OLD_CHAT_KEY) || '[]');
+                if (old.length) { localStorage.setItem(CHAT_KEY, JSON.stringify(old)); return old; }
+                return [];
+            } catch (_) { return []; }
         }
         function saveChatMessages(list) { localStorage.setItem(CHAT_KEY, JSON.stringify(list)); }
         function escapeChat(s) {
             return String(s || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
         }
+        function migrateGuestComments() {
+            const chats = getChatMessages();
+            if (chats.some(m => m.groupId === GUEST_ROOM_ID)) return;
+            let comments = [];
+            try { comments = getComments() || []; } catch (_) { comments = []; }
+            if (!comments.length) return;
+            const migrated = comments.map(c => ({
+                id: 'comment-' + c.id,
+                groupId: GUEST_ROOM_ID,
+                name: c.name || '访客',
+                content: c.replyTo ? `回复 @${c.replyTo}：${c.content || ''}` : (c.content || ''),
+                time: c.time || '',
+                migrated: true
+            }));
+            saveChatMessages(chats.concat(migrated));
+        }
+        function chatRooms() {
+            return [
+                { id: GUEST_ROOM_ID, name: '访客大厅', icon: '💬', meta: '公开访客聊天 · 留言区' },
+                ...getGroups().map(g => ({ id: g.id, name: g.name, icon: GROUP_ICONS[g.type] || '👥', meta: g.desc || (GROUP_LABELS[g.type] || '本地群组') }))
+            ];
+        }
         function renderChatList() {
             const box = document.getElementById('chat-list');
             if (!box) return;
-            const groups = getGroups();
-            if (!groups.length) { box.innerHTML = '<div class="chat-list-empty">还没有群组<br><small>点击「创建群组」开始</small></div>'; return; }
-            box.innerHTML = groups.map(g => {
-                const icon = GROUP_ICONS[g.type] || '👥';
-                const count = getChatMessages().filter(m => m.groupId === g.id).length;
-                return `<button type="button" class="chat-list-item ${activeChatGroupId === g.id ? 'active' : ''}" data-chat-group="${g.id}">
-                    <span class="chat-avatar">${icon}</span><span class="chat-list-copy"><strong>${escapeChat(g.name)}</strong><small>${count ? count + ' 条消息' : '暂无消息'}</small></span>
+            migrateGuestComments();
+            const messages = getChatMessages();
+            const rooms = chatRooms();
+            box.innerHTML = rooms.map(room => {
+                const count = messages.filter(m => String(m.groupId) === String(room.id)).length;
+                const guest = room.id === GUEST_ROOM_ID;
+                return `<button type="button" class="chat-list-item ${String(activeChatGroupId) === String(room.id) ? 'active' : ''}" data-chat-group="${escapeChat(room.id)}">
+                    <span class="chat-avatar">${room.icon}</span>
+                    <span class="chat-list-copy"><strong>${escapeChat(room.name)}</strong><small>${count ? count + ' 条消息' : room.meta}</small></span>
+                    ${guest ? '<span class="chat-room-badge">公开</span>' : ''}
                 </button>`;
             }).join('');
             box.querySelectorAll('[data-chat-group]').forEach(btn => btn.addEventListener('click', () => {
-                activeChatGroupId = Number(btn.dataset.chatGroup);
+                const raw = btn.dataset.chatGroup;
+                activeChatGroupId = raw === GUEST_ROOM_ID ? GUEST_ROOM_ID : Number(raw);
                 renderChatList(); renderActiveChat();
             }));
         }
@@ -2201,28 +2235,27 @@
             const empty = document.getElementById('chat-empty');
             const active = document.getElementById('chat-active');
             if (!empty || !active) return;
-            const group = getGroups().find(g => g.id === activeChatGroupId);
-            if (!group) { empty.style.display='flex'; active.style.display='none'; return; }
+            const room = chatRooms().find(r => String(r.id) === String(activeChatGroupId));
+            if (!room) { activeChatGroupId = GUEST_ROOM_ID; return renderActiveChat(); }
             empty.style.display='none'; active.style.display='flex'; active.style.flexDirection='column';
-            document.getElementById('chat-title').textContent = (GROUP_ICONS[group.type] || '👥') + ' ' + group.name;
-            document.getElementById('chat-meta').textContent = group.desc || (GROUP_LABELS[group.type] || '本地群组');
+            document.getElementById('chat-title').textContent = room.icon + ' ' + room.name;
+            document.getElementById('chat-meta').textContent = room.meta;
             const nameInput = document.getElementById('chatName');
             if (nameInput) nameInput.value = localStorage.getItem(CHAT_NAME_KEY) || '';
+            const manage = document.getElementById('chatManageBtn');
+            if (manage) manage.style.display = room.id === GUEST_ROOM_ID ? 'none' : 'inline-flex';
             const box = document.getElementById('chat-messages');
-            const messages = getChatMessages().filter(m => m.groupId === group.id);
-            box.innerHTML = messages.length ? messages.map(m => `<div class="chat-message"><div class="chat-message-top"><strong>${escapeChat(m.name || '访客')}</strong><time>${escapeChat(m.time)}</time></div><div>${escapeChat(m.content)}</div></div>`).join('') : '<div class="chat-no-messages">还没有消息，来发第一句话吧 👋</div>';
+            const messages = getChatMessages().filter(m => String(m.groupId) === String(room.id));
+            box.innerHTML = messages.length ? messages.map(m => `<div class="chat-message ${m.name === (localStorage.getItem(CHAT_NAME_KEY) || '') ? 'mine' : ''}">
+                <div class="chat-message-top"><strong>${escapeChat(m.name || '访客')}</strong><time>${escapeChat(m.time)}</time></div><div>${escapeChat(m.content)}</div>
+            </div>`).join('') : `<div class="chat-no-messages">${room.id === GUEST_ROOM_ID ? '还没有访客留言，欢迎留下第一句话 👋' : '还没有群消息，来发第一句话吧 👋'}</div>`;
             box.scrollTop = box.scrollHeight;
         }
         function initSocialChat() {
-            document.querySelectorAll('.social-tab').forEach(btn => btn.addEventListener('click', () => {
-                document.querySelectorAll('.social-tab').forEach(x => x.classList.toggle('active', x === btn));
-                document.getElementById('socialGroupsPanel')?.classList.toggle('active', btn.dataset.social === 'groups');
-                document.getElementById('socialChatPanel')?.classList.toggle('active', btn.dataset.social === 'chat');
-                if (btn.dataset.social === 'chat') { renderChatList(); renderActiveChat(); }
-            }));
+            migrateGuestComments();
+            renderChatList(); renderActiveChat();
             document.getElementById('chatForm')?.addEventListener('submit', e => {
                 e.preventDefault();
-                if (!activeChatGroupId) return;
                 const input = document.getElementById('chatInput');
                 const nameInput = document.getElementById('chatName');
                 const content = input.value.trim(); const name = nameInput.value.trim() || '访客';
@@ -2233,47 +2266,21 @@
                 saveChatMessages(list); input.value=''; renderChatList(); renderActiveChat();
             });
             document.getElementById('chatClearBtn')?.addEventListener('click', () => {
-                if (!activeChatGroupId || !confirm('清空这个群组的本地聊天记录？')) return;
-                saveChatMessages(getChatMessages().filter(m => m.groupId !== activeChatGroupId)); renderChatList(); renderActiveChat();
+                if (!activeChatGroupId || !confirm('清空当前聊天频道的本地记录？')) return;
+                saveChatMessages(getChatMessages().filter(m => String(m.groupId) !== String(activeChatGroupId))); renderChatList(); renderActiveChat();
             });
-            document.getElementById('closeChatBtn')?.addEventListener('click', () => closeModal('chatModal'));
+            document.getElementById('chatManageBtn')?.addEventListener('click', () => {
+                const group = getGroups().find(g => String(g.id) === String(activeChatGroupId));
+                if (!group) return;
+                const nextName = prompt('群组名称', group.name);
+                if (nextName === null) return;
+                const name = nextName.trim();
+                if (!name) return alert('群组名称不能为空');
+                saveGroups(getGroups().map(g => g.id === group.id ? {...g, name} : g));
+                renderChatList(); renderActiveChat();
+            });
         }
         initSocialChat();
-        window.deleteTieba = deleteTieba;
-        window.deleteGroup = deleteGroup;
-
-        function openModal(id) {
-            const m = document.getElementById(id);
-            if (m) {
-                m.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            }
-        }
-        function closeModal(id, formId) {
-            const m = document.getElementById(id);
-            if (m) m.classList.remove('active');
-            if (formId) document.getElementById(formId)?.reset();
-            document.body.style.overflow = '';
-        }
-
-        document.getElementById('addTiebaBtn')?.addEventListener('click', () => openModal('tiebaModal'));
-        document.getElementById('closeTiebaBtn')?.addEventListener('click', () => closeModal('tiebaModal', 'tiebaForm'));
-        document.getElementById('tiebaModal')?.addEventListener('click', e => {
-            if (e.target.id === 'tiebaModal') closeModal('tiebaModal', 'tiebaForm');
-        });
-        document.getElementById('tiebaForm')?.addEventListener('submit', e => {
-            e.preventDefault();
-            const name = document.getElementById('tiebaName').value.trim();
-            const url = document.getElementById('tiebaUrl').value.trim();
-            const desc = document.getElementById('tiebaDesc').value.trim();
-            if (!name || !url) return;
-            const list = getTieba();
-            list.push({ id: genCommunityId(), name, url, desc });
-            saveTieba(list);
-            renderTieba();
-            closeModal('tiebaModal', 'tiebaForm');
-        });
-
         document.getElementById('addGroupBtn')?.addEventListener('click', () => openModal('groupModal'));
         document.getElementById('closeGroupBtn')?.addEventListener('click', () => closeModal('groupModal', 'groupForm'));
         document.getElementById('groupModal')?.addEventListener('click', e => {
@@ -2290,6 +2297,9 @@
             list.push({ id: genCommunityId(), type, name, link, desc });
             saveGroups(list);
             renderGroups();
+            activeChatGroupId = list[list.length - 1].id;
+            renderChatList();
+            renderActiveChat();
             closeModal('groupModal', 'groupForm');
         });
 

@@ -403,35 +403,33 @@
                 <div class="community-section social-chat-section">
                     <div class="community-header">
                         <div>
-                            <h3>💬 群组与聊天</h3>
-                            <p class="community-desc">创建群组、进入群聊；聊天记录保存在当前浏览器本地。</p>
+                            <h3>💬 聊天中心</h3>
+                            <p class="community-desc">群组、私聊式访客大厅统一在这里交流；聊天记录保存在当前浏览器本地。</p>
                         </div>
                         <button type="button" class="btn-add-mini" id="addGroupBtn">➕ 创建群组</button>
                     </div>
-                    <div class="social-tabs" id="socialTabs">
-                        <button type="button" class="social-tab active" data-social="groups">👥 群组</button>
-                        <button type="button" class="social-tab" data-social="chat">💬 聊天</button>
-                    </div>
-                    <div class="social-panel active" id="socialGroupsPanel">
-                        <div class="community-grid" id="group-grid"></div>
-                    </div>
-                    <div class="social-panel" id="socialChatPanel">
-                        <div class="chat-layout">
-                            <aside class="chat-list" id="chat-list"></aside>
-                            <section class="chat-window">
-                                <div class="chat-empty" id="chat-empty">选择一个群组开始聊天</div>
-                                <div id="chat-active" style="display:none;height:100%;">
-                                    <div class="chat-head"><div><strong id="chat-title">群聊</strong><span id="chat-meta">本地群组</span></div><button type="button" id="chatClearBtn" class="chat-head-btn">清空记录</button></div>
-                                    <div class="chat-messages" id="chat-messages"></div>
-                                    <form class="chat-compose" id="chatForm">
-                                        <input id="chatName" type="text" placeholder="你的昵称" maxlength="24" />
-                                        <input id="chatInput" type="text" placeholder="输入消息…" maxlength="500" autocomplete="off" required />
-                                        <button type="submit">发送</button>
-                                    </form>
+                    <div class="chat-layout chat-center-layout">
+                        <aside class="chat-list" id="chat-list"></aside>
+                        <section class="chat-window">
+                            <div class="chat-empty" id="chat-empty">选择一个聊天频道开始交流</div>
+                            <div id="chat-active" style="display:none;height:100%;">
+                                <div class="chat-head">
+                                    <div><strong id="chat-title">聊天</strong><span id="chat-meta">本地聊天</span></div>
+                                    <div class="chat-head-actions">
+                                        <button type="button" id="chatManageBtn" class="chat-head-btn" style="display:none;">⚙️ 群设置</button>
+                                        <button type="button" id="chatClearBtn" class="chat-head-btn">清空记录</button>
+                                    </div>
                                 </div>
-                            </section>
-                        </div>
+                                <div class="chat-messages" id="chat-messages"></div>
+                                <form class="chat-compose" id="chatForm">
+                                    <input id="chatName" type="text" placeholder="你的昵称" maxlength="24" />
+                                    <input id="chatInput" type="text" placeholder="输入消息…" maxlength="500" autocomplete="off" required />
+                                    <button type="submit">发送</button>
+                                </form>
+                            </div>
+                        </section>
                     </div>
+                    <div class="chat-center-tip">👋 <strong>访客大厅</strong>：所有访客都可以在这里留言聊天；<strong>群组</strong>：创建自己的主题群并在对应频道交流。</div>
                 </div>
 
                 <div class="community-section" style="margin-top:26px;">
@@ -445,35 +443,7 @@
                     <div class="community-grid" id="tieba-grid"></div>
                 </div>
 
-                <h3 style="font-size:18px;font-weight:700;margin:28px 0 16px;">💬 访客留言</h3>
-                <div class="comment-form">
-                    <div id="replyHint" class="reply-hint" style="display:none;">
-                        回复 <strong id="replyToName"></strong>
-                        <button type="button" id="cancelReplyBtn" class="cancel-reply">取消</button>
-                    </div>
-                    <div class="row">
-                        <input type="text" id="commentName" placeholder="你的昵称 *" required />
-                    </div>
-                    <div class="row">
-                        <textarea id="commentContent" placeholder="想说什么呢？" required></textarea>
-                    </div>
-                    <div class="emoji-row" id="emojiRow">
-                        <button type="button" class="emoji-btn">😀</button>
-                        <button type="button" class="emoji-btn">😂</button>
-                        <button type="button" class="emoji-btn">🥰</button>
-                        <button type="button" class="emoji-btn">👍</button>
-                        <button type="button" class="emoji-btn">🔥</button>
-                        <button type="button" class="emoji-btn">🎉</button>
-                        <button type="button" class="emoji-btn">💡</button>
-                        <button type="button" class="emoji-btn">🙏</button>
-                        <button type="button" class="emoji-btn">❤️</button>
-                        <button type="button" class="emoji-btn">🚀</button>
-                    </div>
-                    <div class="actions">
-                        <button class="btn-submit-comment" id="submitCommentBtn">发表评论</button>
-                    </div>
-                </div>
-                <div class="grid" id="comment-grid"></div>
+
             </div>
 
             <div id="links">
