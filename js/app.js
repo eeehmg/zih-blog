@@ -1238,7 +1238,7 @@
         let externalPlayerPath = localStorage.getItem('ZIH_external_player_path') || '';
 
         function helperErrorText() {
-            return '无法连接本地视频助手。请先双击压缩包里的「启动系统播放器助手.bat」，保持窗口运行。';
+            return '本地助手未连接。它只在 Windows 电脑本机运行；手机端不会连接这个助手。电脑端请先双击「启动系统播放器助手.bat」并保持窗口运行。';
         }
         async function helperJson(path, options = {}) {
             const r = await fetch(SYSTEM_PLAYER_HELPER + path, { cache:'no-store', ...options });
@@ -1253,7 +1253,7 @@
         function setExternalPlayerUI(status) {
             const el = document.getElementById('externalPlayerStatus');
             if (!el) return;
-            if (!status) { el.textContent = '助手未连接'; return; }
+            if (!status) { el.textContent = '未连接（Windows 本机助手）'; return; }
             const p = status.players || {};
             const names = Object.keys(p).filter(k => p[k]);
             el.textContent = status.ffmpeg ? `助手已连接 · FFmpeg ✓ · 可用：${names.join(' / ') || '默认播放器'}` : `助手已连接 · FFmpeg 未找到 · 可用：${names.join(' / ') || '默认播放器'}`;

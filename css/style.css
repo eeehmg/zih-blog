@@ -3536,3 +3536,18 @@
 .chat-message.mine { margin-left:auto; }
 .chat-center-tip { margin-top:10px; padding:10px 12px; border:1px dashed var(--line); border-radius:10px; color:var(--ink-faint); font-size:12px; line-height:1.6; background:var(--bg); }
 @media(max-width:700px){ .chat-center-layout { min-height:560px; } .chat-room-badge { display:none; } .chat-head-actions { flex-wrap:wrap; justify-content:flex-end; } }
+
+/* ===== V3 移动端/右下角快捷按钮修复 =====
+   默认只保留右下角 ⚙️，避免箭头/评论/图片覆盖文章删除按钮。
+   设置面板仍可从齿轮打开。
+*/
+.rail > a:not(#railSettingsBtn) { display: none !important; }
+.rail { z-index: 1200 !important; }
+#railSettingsBtn { width: 38px !important; height: 38px !important; pointer-events: auto !important; touch-action: manipulation !important; }
+.rail-settings-panel { z-index: 1300 !important; }
+@media (max-width: 860px) {
+  .rail { right: 10px !important; bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important; z-index: 1200 !important; }
+  .bottom-nav { z-index: 1100 !important; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .bottom-nav .bnav-item { min-height: 48px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .rail-settings-panel { right: 10px !important; bottom: calc(126px + env(safe-area-inset-bottom, 0px)) !important; z-index: 1300 !important; }
+}
