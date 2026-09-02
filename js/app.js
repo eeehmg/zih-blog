@@ -1232,6 +1232,25 @@
             hydrateLocalGalleryMedia();
         }
 
+        // ----- 系统播放器助手：把本地视频交给 Windows 默认播放器，不经过 Chrome 解码 -----
+        const SYSTEM_PLAYER_HELPER = 'http://127.0.0.1:47823';
+        async function openLocalVideoInSystemPlayer(item) {
+            if (!item || !item.localFile) return false;
+            const rel = item.relativePath || item.fileName || '';
+            if (!rel) { alert('找不到本地视频路径，请重新扫描本地云盘。'); return false; }
+            try {
+                const r = await fetch(SYSTEM_PLAYER_HELPER + '/open?path=' + encodeURIComponent(rel), { cache: 'no-store' });
+                if (!r.ok) throw new Error('助手未运行或返回错误');
+                const data = await r.json();
+                if (!data.ok) throw new Error(data.message || '打开失败');
+                return true;
+            } catch (e) {
+                alert('无法启动系统播放器助手。\n\n请先双击网站压缩包里的「启动系统播放器助手.bat」，选择你的本地云盘文件夹。\n\n启动后再点击「🖥️ 系统播放器」。\n\n说明：这样视频会直接交给 Windows 默认播放器，不经过 Chrome 的视频解码。');
+                return false;
+            }
+        }
+        window.openLocalVideoInSystemPlayer = openLocalVideoInSystemPlayer;
+
         // ----- 媒体预览：点击放大 + 全屏 -----
         let currentMediaEl = null;
 
@@ -1257,7 +1276,9 @@
             const body = document.getElementById('mediaModalBody');
             const title = document.getElementById('mediaModalTitle');
             const fsBtn = document.getElementById('mediaFullscreenBtn');
+            const systemBtn = document.getElementById('mediaSystemPlayerBtn');
             const tip = document.querySelector('.media-modal-tip');
+            if (systemBtn) { systemBtn.style.display = 'none'; systemBtn.dataset.mediaId = ''; }
             title.textContent = item.title || (item.type === 'bilibili' ? 'B站视频' : item.type === 'cloud' ? (item.pan || '云盘链接') : item.type === 'video' ? '视频预览' : '图片预览');
             body.innerHTML = '';
             currentMediaEl = null;
@@ -1349,6 +1370,10 @@
                 });
                 currentMediaEl = video;
                 if (fsBtn) fsBtn.style.display = 'inline-flex';
+                if (systemBtn) {
+                    systemBtn.style.display = item.localFile ? 'inline-flex' : 'none';
+                    systemBtn.dataset.mediaId = item.localFile ? String(item.id) : '';
+                }
                 if (tip) tip.textContent = item.localFile
                     ? `本地云盘 · ${item.size ? formatFileSize(item.size) : '大文件'} · 仅加载当前视频`
                     : '点击视频可播放/暂停 · 点「全屏」进入全屏播放';
@@ -1413,6 +1438,11 @@
             document.getElementById('closeMediaBtn')?.addEventListener('click', closeMediaViewer);
             document.getElementById('mediaFullscreenBtn')?.addEventListener('click', function() {
                 requestMediaFullscreen(currentMediaEl);
+            });
+            document.getElementById('mediaSystemPlayerBtn')?.addEventListener('click', async function() {
+                const id = this.dataset.mediaId ? Number(this.dataset.mediaId) : 0;
+                const item = getImages().find(i => i.id === id);
+                if (item) await openLocalVideoInSystemPlayer(item);
             });
             modal.addEventListener('click', function(e) {
                 if (e.target === modal) closeMediaViewer();
@@ -3945,6 +3975,57 @@
             void this.offsetWidth;
             this.classList.add('pulse-top');
         });
+
+        // 右下角快捷按钮：可在设置中分别屏蔽/恢复
+        (function initRailSettings() {
+            const topBtn = document.getElementById('railTopBtn');
+            const settingsBtn = document.getElementById('railSettingsBtn');
+            const commentBtn = document.getElementById('railCommentBtn');
+            const panel = document.getElementById('railSettingsPanel');
+            const closeBtn = document.getElementById('closeRailSettings');
+            const topToggle = document.getElementById('toggleRailTop');
+            const settingsToggle = document.getElementById('toggleRailSettings');
+            const commentToggle = document.getElementById('toggleRailComment');
+            if (!panel || !settingsBtn) return;
+
+            const KEY = 'ZIH_rail_visibility';
+            let state = { top: true, settings: true, comment: true };
+            try { state = { ...state, ...(JSON.parse(localStorage.getItem(KEY) || '{}')) }; } catch (_) {}
+
+            function apply() {
+                if (topBtn) topBtn.style.display = state.top ? '' : 'none';
+                if (commentBtn) commentBtn.style.display = state.comment ? '' : 'none';
+                // 设置按钮自身不能被隐藏，否则无法恢复；勾选项仍可用于状态管理。
+                if (settingsBtn) settingsBtn.style.display = '';
+                if (topToggle) topToggle.checked = !!state.top;
+                if (settingsToggle) settingsToggle.checked = !!state.settings;
+                if (commentToggle) commentToggle.checked = !!state.comment;
+                localStorage.setItem(KEY, JSON.stringify(state));
+            }
+            function openPanel(e) {
+                e?.preventDefault();
+                panel.classList.add('open');
+                panel.setAttribute('aria-hidden', 'false');
+            }
+            function closePanel() {
+                panel.classList.remove('open');
+                panel.setAttribute('aria-hidden', 'true');
+            }
+            settingsBtn.addEventListener('click', openPanel);
+            closeBtn?.addEventListener('click', closePanel);
+            document.addEventListener('click', e => {
+                if (!panel.contains(e.target) && !settingsBtn.contains(e.target)) closePanel();
+            });
+            topToggle?.addEventListener('change', () => { state.top = topToggle.checked; apply(); });
+            commentToggle?.addEventListener('change', () => { state.comment = commentToggle.checked; apply(); });
+            // 设置按钮不能在隐藏后消失，否则用户无法重新打开设置面板。
+            settingsToggle?.addEventListener('change', () => {
+                state.settings = true;
+                settingsToggle.checked = true;
+                apply();
+            });
+            apply();
+        })();
 
         // 可编辑侧边栏问候
         (function initGreet() {

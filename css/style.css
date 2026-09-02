@@ -3448,3 +3448,36 @@
 .local-video-thumb-fallback .local-video-thumb-bg { opacity: .65; }
 .local-video-overlay { position:absolute; inset:0; display:grid; place-items:center; z-index:2; pointer-events:none; background:linear-gradient(180deg,transparent,rgba(0,0,0,.28)); }
 .local-video-overlay .local-video-play { opacity:.92; }
+
+.media-system-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--line,#e5e7eb);background:var(--panel,#fff);color:var(--ink,#222);border-radius:999px;padding:7px 11px;font-size:12px;cursor:pointer;transition:.2s}
+.media-system-btn:hover{transform:translateY(-1px);border-color:var(--teal,#18b87a);color:var(--teal,#18b87a);box-shadow:0 5px 18px rgba(0,0,0,.08)}
+
+
+/* ===== 右下角快捷按钮设置面板 ===== */
+.rail-settings-panel {
+    position: fixed;
+    right: 62px;
+    bottom: 18px;
+    width: 230px;
+    padding: 14px;
+    border: 1px solid var(--rail-border);
+    border-radius: 14px;
+    background: var(--rail-bg);
+    color: var(--ink);
+    box-shadow: 0 12px 34px var(--shadow);
+    backdrop-filter: blur(14px);
+    z-index: 80;
+    opacity: 0;
+    transform: translateY(8px) scale(.98);
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+}
+.rail-settings-panel.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.rail-settings-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.rail-settings-head button { border:0; background:transparent; color:var(--ink-soft); cursor:pointer; font-size:16px; }
+.rail-settings-panel label { display:flex; align-items:center; gap:8px; padding:7px 2px; font-size:13px; cursor:pointer; }
+.rail-settings-panel input { accent-color: var(--teal); }
+.rail-settings-panel p { margin:8px 0 0; font-size:11px; line-height:1.5; color:var(--ink-faint); }
+@media (max-width: 600px) {
+  .rail-settings-panel { right: 14px; bottom: 70px; width: min(230px, calc(100vw - 28px)); }
+}
