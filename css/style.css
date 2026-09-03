@@ -1143,11 +1143,15 @@
         }
         .music-card.music-expanded .music-panel-head { display: flex; }
         @media(max-width:700px) {
+            /* V6.4：手机端按页面实际视觉位置放到左下角红圈区域，
+               与底部导航保持间距，同时避免贴屏边太近。 */
             .music-card {
-                left: 12px;
-                bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+                left: 58px !important;
+                bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
             }
             .music-card.music-expanded {
+                left: 12px !important;
+                bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
                 width: min(300px, calc(100vw - 24px));
             }
         }
@@ -3776,4 +3780,67 @@
 
   /* 网页播放器不受普通弹窗规则影响 */
   #webPlayerDirectOverlay { z-index: 2500 !important; }
+}
+
+
+/* ===== V6.4 音乐悬浮唱片定位最终覆盖 ===== */
+@media (max-width: 700px) {
+    #musicCard.music-card:not(.music-expanded) {
+        position: fixed !important;
+        left: 58px !important;
+        bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+        width: 62px !important;
+        height: 62px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        z-index: 2050 !important;
+    }
+    #musicCard.music-card.music-expanded {
+        position: fixed !important;
+        left: 12px !important;
+        bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+        z-index: 2050 !important;
+    }
+}
+
+/* ===== V6.5 音乐唱片：手机端轻量悬浮定位 ===== */
+@media (max-width: 700px) {
+    #musicCard.music-card:not(.music-expanded) {
+        position: fixed !important;
+        left: 16px !important;
+        bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important;
+        width: 58px !important;
+        height: 58px !important;
+        min-height: 58px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        z-index: 2050 !important;
+        border-radius: 50% !important;
+    }
+
+    #musicCard.music-card:not(.music-expanded) .music-float-disc {
+        width: 58px !important;
+        height: 58px !important;
+        border-radius: 50% !important;
+    }
+
+    #musicCard.music-card:not(.music-expanded) .music-disc-groove {
+        inset: 8px !important;
+    }
+
+    #musicCard.music-card:not(.music-expanded) .music-disc-note {
+        width: 20px !important;
+        height: 20px !important;
+        font-size: 13px !important;
+    }
+
+    #musicCard.music-card.music-expanded {
+        position: fixed !important;
+        left: 12px !important;
+        right: auto !important;
+        bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important;
+        width: min(300px, calc(100vw - 24px)) !important;
+        max-width: calc(100vw - 24px) !important;
+        z-index: 2050 !important;
+    }
 }
