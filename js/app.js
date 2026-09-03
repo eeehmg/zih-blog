@@ -780,6 +780,10 @@
             return defaultImages.map(x => ({ ...x }));
         }
 
+        // V4.2：让网页播放助手也能从全局读取视频卡片数据。
+        // 这样“第一次上传后自动播放”与“之后再次点击视频卡片”使用同一套数据源。
+        window.getImages = getImages;
+
         function saveImages(images) {
             try {
                 localStorage.setItem(IMAGE_KEY, JSON.stringify(images));

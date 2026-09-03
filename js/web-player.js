@@ -77,6 +77,9 @@
     const overlay = ensureDirectOverlay();
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
+    // 每次播放都重新创建媒体元素，避免第二次点击沿用第一次的 ended/paused 状态。
+    const oldMedia = overlay.querySelector('#webDirectScreen video, #webDirectScreen audio');
+    if (oldMedia) { try { oldMedia.pause(); } catch (_) {} oldMedia.removeAttribute('src'); try { oldMedia.load(); } catch (_) {} }
     const title = document.getElementById('webDirectTitle');
     if (title) title.textContent = item.title || item.fileName || '视频';
     const screen = document.getElementById('webDirectScreen');
@@ -85,7 +88,15 @@
     setInfo('🎬 已直接播放：' + (item.title || item.fileName || '媒体文件') + ' · 网页播放助手');
   }
   function openWebPlayerForItemById(id) {
-    const list = typeof window.getImages === 'function' ? window.getImages() : [];
+    // V4.2：兼容 app.js 未加载完成、旧缓存或全局函数暂不可用的情况。
+    let list = [];
+    try {
+      if (typeof window.getImages === 'function') list = window.getImages() || [];
+      if (!Array.isArray(list) || !list.length) {
+        const raw = localStorage.getItem('ZIH_gallery');
+        list = raw ? JSON.parse(raw) : [];
+      }
+    } catch (_) { list = []; }
     const item = list.find(i => Number(i.id) === Number(id));
     if (!item) { alert('找不到这个视频，请刷新页面后重试。'); return; }
     if (item.type !== 'video') return;
