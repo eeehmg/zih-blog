@@ -1,6 +1,6 @@
 /* ZIH V4.3 · 网页播放助手 + 浏览器兼容转码
  * 如果浏览器不能直接解码上传的视频（常见于 HEVC/H.265、部分 MOV/手机视频），
- * 会在浏览器本机用 ffmpeg.js 转成 MP4/H.264/AAC，再播放。
+ * 首先仅把音频统一为 AAC-LC，并直接复制原视频轨，避免手机浏览器因整段 H.264 重编码而 OOM。
  * 原视频不会上传到服务器；转码在当前设备完成。
  */
 (function () {
@@ -168,7 +168,7 @@
     if (blob.size > 1024 * 1024 * 1024) throw new Error('视频超过浏览器网页转码的安全上限（1GB）');
 
     transcodeBusy = true;
-    setPlayerStatus('🛠️ 浏览器不能直接解码，正在本机转换为 MP4 / H.264…');
+    setPlayerStatus('🛠️ 浏览器不能直接解码，先做轻量兼容转换（视频不重编码，只转换音频）…');
     const workerUrl = makeWorkerBlob();
     try {
       const worker = new Worker(workerUrl);
@@ -189,7 +189,7 @@
                 type: 'run',
                 TOTAL_MEMORY: 536870912,
                 MEMFS: [{ name: inputName, data: buf }],
-                arguments: ['-y', '-i', inputName, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', outputName]
+                arguments: ['-y', '-i', inputName, '-map', '0:v:0', '-map', '0:a:0?', '-c:v', 'copy', '-c:a', 'aac', '-profile:a', 'aac_low', '-b:a', '128k', '-movflags', '+faststart', outputName]
               });
             }).catch(fail);
           } else if (msg.type === 'stderr' || msg.type === 'stdout') {
@@ -240,7 +240,7 @@
       renderMedia(currentObjectUrl, name, 'video/mp4', screen, function () {
         setPlayerStatus('❌ 自动转换后的 MP4 仍无法播放，请更换浏览器或重新导出视频。');
       });
-      setPlayerStatus('▶ 已转换为浏览器兼容 MP4（H.264 + AAC），正在播放。');
+      setPlayerStatus('▶ 已生成轻量浏览器兼容 MP4（原视频 + AAC-LC 音频），正在播放。');
     } catch (err) {
       setPlayerStatus('❌ 自动兼容转换失败：' + (err.message || err) + '。请尝试 Chrome / Edge，或先把视频导出为 MP4（H.264 + AAC）。');
     }
