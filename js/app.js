@@ -2390,6 +2390,27 @@
         const musicUploadArea = document.getElementById('musicUploadArea');
         const musicInput = document.getElementById('musicInput');
         const deleteMusicBtn = document.getElementById('deleteMusicBtn');
+        const musicCard = document.getElementById('musicCard');
+        const musicFloatDisc = document.getElementById('musicFloatDisc');
+        const musicPanelClose = document.getElementById('musicPanelClose');
+
+        function setMusicExpanded(expanded) {
+            if (!musicCard) return;
+            musicCard.classList.toggle('music-expanded', !!expanded);
+            if (musicFloatDisc) musicFloatDisc.setAttribute('aria-label', expanded ? '收起音乐播放器' : '打开音乐播放器');
+            if (musicFloatDisc) musicFloatDisc.title = expanded ? '收起音乐播放器' : '打开音乐播放器';
+        }
+
+        if (musicFloatDisc) musicFloatDisc.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            setMusicExpanded(true);
+        });
+        if (musicPanelClose) musicPanelClose.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            setMusicExpanded(false);
+        });
 
         let isPlaying = false,
             isLoaded = false;
@@ -2458,6 +2479,7 @@
                 applyLoopState(!data0 || data0.loop !== false);
                 audioPlayer.play().then(() => {
                     isPlaying = true;
+                    musicCard?.classList.add('music-playing');
                     playBtn.textContent = '⏸ 暂停';
                     playBtn.classList.add('paused');
                     musicStatus.textContent = audioPlayer.loop ? '循环播放中' : '播放中';
@@ -2468,6 +2490,7 @@
             } else {
                 audioPlayer.pause();
                 isPlaying = false;
+                musicCard?.classList.remove('music-playing');
                 playBtn.textContent = '▶ 播放';
                 playBtn.classList.remove('paused');
                 musicStatus.textContent = '已暂停';
@@ -2504,6 +2527,7 @@
             if (shouldLoop) {
                 applyLoopState(true);
                 isPlaying = true;
+                musicCard?.classList.add('music-playing');
                 playBtn.textContent = '⏸ 暂停';
                 playBtn.classList.add('paused');
                 musicStatus.textContent = '循环播放中';
@@ -2513,6 +2537,7 @@
                 return;
             }
             isPlaying = false;
+            musicCard?.classList.remove('music-playing');
             playBtn.textContent = '▶ 播放';
             playBtn.classList.remove('paused');
             musicStatus.textContent = '已结束';

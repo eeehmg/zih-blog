@@ -1035,6 +1035,123 @@
             color: var(--postmini-text);
         }
 
+        /* ===== 音乐悬浮唱片播放器 V6.3 ===== */
+        .music-card {
+            position: fixed !important;
+            left: 14px;
+            bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+            width: 62px;
+            height: 62px;
+            box-sizing: border-box;
+            margin: 0 !important;
+            padding: 0 !important;
+            z-index: 2050;
+            border-radius: 50%;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            overflow: visible;
+        }
+        .music-float-disc {
+            position: absolute;
+            inset: 0;
+            width: 62px;
+            height: 62px;
+            padding: 0;
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 50%;
+            cursor: pointer;
+            background:
+                radial-gradient(circle at 50% 50%, #f5f5f5 0 7px, #17181c 8px 10px, transparent 11px),
+                repeating-radial-gradient(circle at 50% 50%, #22242a 0 2px, #0d0e11 3px 5px);
+            box-shadow: 0 8px 24px rgba(0,0,0,.28), inset 0 0 0 5px rgba(255,255,255,.04);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+        .music-float-disc:hover { transform: scale(1.06); }
+        .music-float-disc:active { transform: scale(.96); }
+        .music-disc-groove {
+            position: absolute;
+            inset: 9px;
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .music-disc-note {
+            position: relative;
+            z-index: 2;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--teal);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(0,0,0,.25);
+        }
+        .music-card.music-playing .music-float-disc {
+            animation: musicDiscSpin 5s linear infinite;
+        }
+        .music-card.music-playing .music-disc-note {
+            animation: musicDiscSpinReverse 5s linear infinite;
+        }
+        @keyframes musicDiscSpin { to { transform: rotate(360deg); } }
+        @keyframes musicDiscSpinReverse { to { transform: rotate(-360deg); } }
+        .music-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .music-panel-head h4 { margin: 0 !important; }
+        .music-panel-close {
+            width: 28px;
+            height: 28px;
+            border: 0;
+            border-radius: 50%;
+            background: var(--input-bg);
+            color: var(--ink-soft);
+            cursor: pointer;
+            font-size: 19px;
+            line-height: 1;
+        }
+        .music-card.music-expanded {
+            width: min(300px, calc(100vw - 28px));
+            height: auto;
+            min-height: 62px;
+            padding: 14px !important;
+            border: 1px solid var(--line) !important;
+            border-radius: 18px;
+            background: var(--panel) !important;
+            box-shadow: 0 16px 45px rgba(0,0,0,.18) !important;
+            overflow: hidden;
+        }
+        .music-card.music-expanded .music-float-disc {
+            display: none;
+        }
+        .music-card:not(.music-expanded) .music-panel-head,
+        .music-card:not(.music-expanded) .music-upload-area,
+        .music-card:not(.music-expanded) .music-controls {
+            display: none !important;
+        }
+        .music-card.music-expanded .music-panel-head { display: flex; }
+        @media(max-width:700px) {
+            .music-card {
+                left: 12px;
+                bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+            }
+            .music-card.music-expanded {
+                width: min(300px, calc(100vw - 24px));
+            }
+        }
+
         /* ===== 音乐卡片 ===== */
         .music-card {
             padding: 16px 18px;
@@ -3622,4 +3739,41 @@
         min-height: 42px;
         touch-action: manipulation;
     }
+}
+
+/* ===== V6.2 移动端全部弹窗层级统一修复 =====
+   底部导航不能覆盖发布、云盘、B站、联系人、群组等弹窗的底部操作按钮。
+   统一提高所有普通模态框层级；网页播放器保持更高层级。 */
+@media (max-width: 700px) {
+  .modal-overlay {
+    z-index: 2000 !important;
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+    padding-right: 10px;
+    padding-left: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+  }
+
+  .modal-overlay .modal {
+    position: relative;
+    z-index: 2001;
+    max-height: calc(100vh - max(20px, env(safe-area-inset-top, 0px)) - max(20px, env(safe-area-inset-bottom, 0px)));
+    box-sizing: border-box;
+    overscroll-behavior: contain;
+  }
+
+  .modal-overlay .modal .actions,
+  .modal-overlay .modal .modal-actions,
+  .modal-overlay .modal .form-actions {
+    position: relative;
+    z-index: 2002;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .modal-overlay .modal button {
+    touch-action: manipulation;
+  }
+
+  /* 网页播放器不受普通弹窗规则影响 */
+  #webPlayerDirectOverlay { z-index: 2500 !important; }
 }

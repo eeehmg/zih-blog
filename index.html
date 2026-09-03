@@ -149,8 +149,15 @@
                     <button type="button" class="quote-refresh" id="quoteRefresh" title="换一句">换一句</button>
                 </div>
 
-                <div class="card music-card">
-                    <h4>🎵 音乐框</h4>
+                <div class="card music-card" id="musicCard">
+                    <button type="button" class="music-float-disc" id="musicFloatDisc" title="打开音乐播放器" aria-label="打开音乐播放器">
+                        <span class="music-disc-groove"></span>
+                        <span class="music-disc-note">♪</span>
+                    </button>
+                    <div class="music-panel-head">
+                        <h4>🎵 音乐播放器</h4>
+                        <button type="button" class="music-panel-close" id="musicPanelClose" title="收起音乐播放器">×</button>
+                    </div>
                     <div class="music-upload-area" id="musicUploadArea">
                         <span>点击上传音乐</span>
                         <input type="file" id="musicInput" accept="audio/*" style="display:none;" />
