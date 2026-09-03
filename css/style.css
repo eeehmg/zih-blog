@@ -3587,3 +3587,39 @@
 #webPlayerDirectOverlay .web-direct-screen audio{max-width:720px;margin:80px auto}
 #webPlayerDirectOverlay .web-direct-foot{padding:10px 16px;font-size:12px;color:rgba(255,255,255,.62);background:#151820}
 @media(max-width:600px){#webPlayerDirectOverlay{padding:0}#webPlayerDirectOverlay .web-direct-dialog{width:100vw;max-height:100vh;height:100vh;border-radius:0}#webPlayerDirectOverlay .web-direct-screen{flex:1;max-height:none;min-height:0}#webPlayerDirectOverlay .web-direct-screen video{max-height:80vh}#webPlayerDirectOverlay .web-direct-head{padding:10px 12px}}
+
+/* ===== 发布弹窗移动端层级修复 V6.1 =====
+   手机端底部导航不能盖住“发布新内容”弹窗及其操作按钮。
+   弹窗本身保持内部滚动，按钮随内容一起滚动，不被底部导航遮挡。 */
+@media (max-width: 700px) {
+    #publishModal {
+        z-index: 2000 !important;
+        padding: max(10px, env(safe-area-inset-top, 0px)) 10px max(10px, env(safe-area-inset-bottom, 0px));
+        align-items: flex-start;
+        overflow: hidden;
+    }
+
+    #publishModal .modal {
+        position: relative;
+        z-index: 2001;
+        width: min(100%, 580px);
+        max-height: calc(100vh - max(20px, env(safe-area-inset-top, 0px)) - max(20px, env(safe-area-inset-bottom, 0px)));
+        margin: 0;
+        padding-bottom: 24px;
+        box-sizing: border-box;
+        overscroll-behavior: contain;
+    }
+
+    /* 发布/取消按钮区域在手机端始终留出足够的底部空间 */
+    #publishModal .modal .actions {
+        position: relative;
+        z-index: 2002;
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+    }
+
+    #publishModal .modal .actions button {
+        min-height: 42px;
+        touch-action: manipulation;
+    }
+}
