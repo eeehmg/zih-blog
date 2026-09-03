@@ -994,6 +994,8 @@
             return url;
         }
 
+        window.getLocalFile = getLocalFile;
+
         function revokeLocalMediaUrl(id) {
             const url = LOCAL_VIDEO_URLS.get(id);
             if (url) { URL.revokeObjectURL(url); LOCAL_VIDEO_URLS.delete(id); }
