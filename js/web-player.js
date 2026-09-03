@@ -10,7 +10,7 @@
   let directOverlay = null;
   let transcodeBusy = false;
   let transcodeWorker = null;
-  const CACHE_DB = 'ZIH_WebVideoCache_v1';
+  const CACHE_DB = 'ZIH_WebVideoCache_v2';
   const CACHE_STORE = 'videos';
   const WORKER_CDNS = [
     'https://cdn.jsdelivr.net/npm/ffmpeg.js@4.2.9003/ffmpeg-worker-mp4.js',
@@ -59,16 +59,35 @@
     el.controls = true;
     el.autoplay = true;
     el.playsInline = true;
-    el.preload = 'metadata';
+    el.preload = 'auto';
+    el.setAttribute('playsinline', '');
+    el.setAttribute('webkit-playsinline', '');
+    if (mime && isAudio) el.type = mime;
+    // 关键：不要给 video 强行设置可能错误的 MIME type；让浏览器按 MP4 文件头判断。
     el.src = src;
-    if (mime) el.setAttribute('type', mime);
-    el.addEventListener('error', function () {
+    let metadataDone = false;
+    let errorTimer = 0;
+    const fail = function () {
+      if (errorTimer) clearTimeout(errorTimer);
       if (typeof onError === 'function') onError(el);
-      else setPlayerStatus('⚠️ 浏览器无法解码这个文件。建议使用 MP4（H.264 + AAC）或 WebM。');
-    }, { once: true });
-    el.addEventListener('loadedmetadata', function () { setPlayerStatus('▶ 正在播放：' + (name || '媒体文件')); });
+      else setPlayerStatus('⚠️ 浏览器无法打开这个媒体文件。');
+    };
+    el.addEventListener('loadedmetadata', function () {
+      metadataDone = true;
+      if (errorTimer) clearTimeout(errorTimer);
+      setPlayerStatus('▶ 正在播放：' + (name || '媒体文件'));
+    });
+    el.addEventListener('canplay', function () {
+      metadataDone = true;
+      if (errorTimer) clearTimeout(errorTimer);
+    });
+    el.addEventListener('error', function () {
+      // 某些 Android 浏览器会先报一次 MEDIA_ERR_DECODE，随后仍能恢复；稍等一下再判定。
+      errorTimer = setTimeout(function () { if (!metadataDone) fail(); }, 700);
+    });
     screen.appendChild(el);
-    el.play().catch(function () {});
+    const p = el.play();
+    if (p && typeof p.catch === 'function') p.catch(function () {});
     return el;
   }
 
@@ -197,10 +216,10 @@
     }
   }
 
-  async function recoverDecodeFailure(item, originalSrc, mediaEl) {
+  async function recoverDecodeFailure(item, originalSrc, mediaEl, reason) {
     if (transcodeBusy) return;
     const overlay = ensureDirectOverlay();
-    setPlayerStatus('⚠️ 当前视频编码不是浏览器原生支持的格式，正在尝试自动兼容转换…');
+    setPlayerStatus('⚠️ ' + (reason || '浏览器无法直接播放') + '，正在尝试自动兼容转换…');
     try {
       const key = cacheKey(item);
       const cached = key ? await getCachedVideo(key) : null;
@@ -244,19 +263,38 @@
   async function playItem(item) {
     if (!item) return;
     currentItem = item; revokeCurrentUrl();
-    let src = item.url || '';
-    if (item.localFile && window.getLocalFileUrl) {
-      try { src = await window.getLocalFileUrl(item); } catch (_) { src = ''; }
-    }
-    if (!src) { alert('无法读取这个视频。请重新连接本地云盘文件夹，并确认文件没有被移动或删除。'); return; }
-    const overlay = ensureDirectOverlay(); overlay.classList.add('active'); document.body.style.overflow = 'hidden';
-    const oldMedia = overlay.querySelector('#webDirectScreen video, #webDirectScreen audio');
-    if (oldMedia) { try { oldMedia.pause(); } catch (_) {} oldMedia.removeAttribute('src'); try { oldMedia.load(); } catch (_) {} }
-    const title = document.getElementById('webDirectTitle'); if (title) title.textContent = item.title || item.fileName || '视频';
+    const overlay = ensureDirectOverlay();
+    overlay.classList.add('active'); document.body.style.overflow = 'hidden';
+    const title = document.getElementById('webDirectTitle');
+    if (title) title.textContent = item.title || item.fileName || '视频';
     const screen = document.getElementById('webDirectScreen');
-    const mime = item.mimeType || item.mime || '';
-    renderMedia(src, item.title || item.fileName || '媒体文件', mime, screen, function (el) { recoverDecodeFailure(item, src, el); });
-    setInfo('🎬 已直接播放：' + (item.title || item.fileName || '媒体文件') + ' · 网页播放助手');
+    screen.innerHTML = '<div class="web-player-empty">🎬<br><span>正在读取视频文件…</span></div>';
+
+    try {
+      // 本地云盘：直接拿真实 File 建立 ObjectURL，不再经过旧的缓存 URL 链路。
+      let file = null;
+      if (item.localFile && window.getLocalFile) file = await window.getLocalFile(item);
+      if (!file && item.url) {
+        try {
+          const r = await fetch(item.url);
+          if (r.ok) file = await r.blob();
+        } catch (_) {}
+      }
+      if (!file) throw new Error('无法读取原视频文件');
+
+      currentObjectUrl = URL.createObjectURL(file);
+      const mime = file.type || item.mimeType || item.mime || 'video/mp4';
+      const name = item.title || item.fileName || '视频';
+      setInfo('🔎 正在检测：' + name + ' · ' + Math.round(file.size / 1024 / 1024 * 10) / 10 + ' MB');
+      const media = renderMedia(currentObjectUrl, name, mime, screen, function (el) {
+        const code = el && el.error ? el.error.code : 0;
+        const detail = code === 3 ? '解码错误（MEDIA_ERR_DECODE）' : code === 4 ? '格式/来源不受支持（MEDIA_ERR_SRC_NOT_SUPPORTED）' : '媒体读取失败';
+        recoverDecodeFailure(Object.assign({}, item, { size: file.size, mimeType: mime }), currentObjectUrl, el, detail);
+      });
+      setInfo('🎬 正在播放：' + name + ' · 原文件直读');
+    } catch (err) {
+      setPlayerStatus('❌ ' + (err.message || err));
+    }
   }
 
   function openWebPlayerForItemById(id) {
