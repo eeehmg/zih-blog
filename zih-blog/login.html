@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 · ZIH</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at 50% 25%,#26364b 0,#111827 42%,#070b12 100%);color:#fff;display:flex;align-items:center;justify-content:center;padding:24px}
+.wrap{width:min(420px,100%)}.brand{text-align:center;margin-bottom:22px}.brand h1{margin:0;font-size:30px}.brand p{margin:8px 0;color:#9ca9bb;font-size:14px}
+.card{background:rgba(17,24,39,.82);border:1px solid rgba(255,255,255,.10);box-shadow:0 24px 70px rgba(0,0,0,.38);border-radius:22px;padding:26px;backdrop-filter:blur(18px)}
+.tabs{display:flex;gap:8px;background:rgba(255,255,255,.06);padding:5px;border-radius:13px;margin-bottom:22px}.tabs button{flex:1;border:0;background:transparent;color:#9ca9bb;padding:11px;border-radius:9px;font-size:14px;cursor:pointer}.tabs button.active{background:#fff;color:#111827}
+label{display:block;font-size:13px;color:#aeb9c8;margin:14px 0 7px}input{width:100%;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.055);color:#fff;border-radius:11px;padding:13px 14px;outline:none}input:focus{border-color:#7dd3fc}
+.primary{width:100%;margin-top:20px;border:0;border-radius:12px;padding:13px;background:#fff;color:#111827;font-weight:700;cursor:pointer}.hint{font-size:12px;color:#778499;text-align:center;margin-top:14px;line-height:1.6}.back{text-align:center;margin-top:18px}.back a{color:#a7d8ff;text-decoration:none;font-size:13px}
+.msg{display:none;margin-top:12px;padding:10px 12px;border-radius:10px;background:rgba(34,197,94,.12);color:#86efac;font-size:13px}.error{background:rgba(239,68,68,.12);color:#fca5a5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><h1>ZIH</h1><p>个人内容 · 作品 · 社区</p></div>
+  <div class="card">
+    <div class="tabs"><button id="loginTab" class="active" onclick="show('login')">登录</button><button id="regTab" onclick="show('register')">注册</button></div>
+    <form id="loginForm">
+      <label>用户名</label><input id="loginUser" autocomplete="username" required placeholder="输入用户名">
+      <label>密码</label><input id="loginPass" type="password" autocomplete="current-password" required placeholder="输入密码">
+      <button class="primary">进入网站</button>
+    </form>
+    <form id="registerForm" style="display:none">
+      <label>用户名</label><input id="regUser" required placeholder="设置用户名">
+      <label>密码</label><input id="regPass" type="password" required minlength="4" placeholder="至少 4 位">
+      <button class="primary">创建账号</button>
+    </form>
+    <div id="msg" class="msg"></div>
+    <div class="hint">GitHub Pages 免费静态版。账号信息仅保存在当前浏览器，适合演示/个人使用。</div>
+  </div>
+  <div class="back"><a href="index.html">暂不登录，直接浏览</a></div>
+</div>
+<script>
+const KEY='zih_accounts_v1', SESSION='zih_session_v1';
+function goBack(){const p=new URLSearchParams(location.search).get('returnTo');location.href=p?decodeURIComponent(p):'index.html'}
+function accounts(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}}
+function message(t,err=false){const m=document.getElementById('msg');m.textContent=t;m.className='msg'+(err?' error':'');m.style.display='block'}
+function show(type){document.getElementById('loginForm').style.display=type==='login'?'block':'none';document.getElementById('registerForm').style.display=type==='register'?'block':'none';document.getElementById('loginTab').className=type==='login'?'active':'';document.getElementById('regTab').className=type==='register'?'active':'';document.getElementById('msg').style.display='none'}
+document.getElementById('registerForm').onsubmit=e=>{e.preventDefault();const u=regUser.value.trim(),p=regPass.value,a=accounts();if(!u||p.length<4)return message('请输入用户名，并设置至少 4 位密码。',true);if(a[u])return message('这个用户名已经存在。',true);a[u]={password:p,role:u==='admin'?'admin':'user',createdAt:Date.now()};localStorage.setItem(KEY,JSON.stringify(a));localStorage.setItem(SESSION,JSON.stringify({username:u,role:a[u].role}));goBack()};
+document.getElementById('loginForm').onsubmit=e=>{e.preventDefault();const u=loginUser.value.trim(),p=loginPass.value,a=accounts();if(!a[u])return message('账号不存在，请先注册。',true);if(a[u].password!==p)return message('密码不正确。',true);localStorage.setItem(SESSION,JSON.stringify({username:u,role:a[u].role}));goBack()};
+</script>
+</body>
+</html>

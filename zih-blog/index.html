@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZIH · 博客小栈</title>
+    <meta name="description" content="ZIH 的个人博客，分享技术与生活的点点滴滴" />
+    <meta name="author" content="ZIH" />
+    <meta name="theme-color" content="#17b6a6" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ZIH · 博客小栈" />
+    <meta property="og:description" content="分享技术与生活的点点滴滴" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2317b6a6' width='100' height='100' rx='20'/><text y='68' x='50' text-anchor='middle' font-size='50' fill='white'>Z</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;900&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2317181c' stroke-width='2'><line x1='3' y1='6' x2='21' y2='6'/><line x1='3' y1='12' x2='21' y2='12'/><line x1='3' y1='18' x2='15' y2='18'/></svg>" />
+    <link rel="alternate" type="application/rss+xml" title="ZIH 博客 RSS" href="#" id="rssLinkHint" />
+    <link rel="stylesheet" href="css/style.css" />
+
+</head>
+<body>
+
+    <!-- 阅读进度条 -->
+    <div class="read-progress" id="readProgress" aria-hidden="true"></div>
+
+    <!-- ===== TOP BAR ===== -->
+    <header class="topbar">
+        <div class="brand">
+            <button class="sidebar-toggle" id="sidebarToggle" aria-label="切换侧边栏">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+            </button>
+            <button class="menu-toggle" id="menuToggle" aria-label="展开分类菜单">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="15" y2="18" />
+                </svg>
+            </button>
+            <span class="brand-text">ZIH · 博客小栈</span>
+        </div>
+        <nav class="toplinks">
+            <a href="#" data-tab="blog" class="active">文章</a>
+            <a href="#" data-tab="gallery">预览</a>
+            <a href="#" data-tab="personal">个人</a>
+            <a href="#" data-tab="about">关于</a>
+            <a href="#" data-tab="links">友链</a>
+        </nav>
+        <div class="topicons">
+            <svg id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="button" aria-label="搜索文章" title="点击查看文章">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <svg id="icon-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" role="button" aria-label="查看相册" title="点击查看相册">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+            </svg>
+        </div>
+    </header>
+
+    <!-- 公告条 -->
+    <div class="announce-bar" id="announceBar">
+        <span class="announce-icon">📢</span>
+        <span class="announce-text" id="announceText" contenteditable="false">欢迎来到博客小栈 · 点击右侧编辑公告</span>
+        <button type="button" class="announce-edit" id="announceEditBtn" title="编辑公告">✏️</button>
+        <button type="button" class="announce-close" id="announceCloseBtn" title="关闭">✕</button>
+    </div>
+
+    <!-- ===== 分类侧滑菜单 ===== -->
+    <div class="menu-overlay" id="menuOverlay"></div>
+    <div class="menu-panel" id="menuPanel">
+        <div class="menu-header">
+            <h3>📂 分类</h3>
+            <button class="close-btn" id="menuCloseBtn">✕</button>
+        </div>
+        <div class="menu-body" id="menuBody"></div>
+        <div class="menu-footer">
+            <span>共 <span id="menuTotalPosts">0</span> 篇文章</span>
+        </div>
+    </div>
+
+    <!-- ===== 移动端侧边栏遮罩 ===== -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ===== MAIN LAYOUT ===== -->
+    <div class="shell">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar-wrapper" id="sidebarWrapper">
+            <div class="sidebar-scroll">
+                <div class="card profile">
+                    <span class="greet" id="sidebarGreet" contenteditable="true" title="点击编辑问候语">不要太劳累了，早睡更健康</span>
+                    <div class="avatar-wrapper" id="avatarUpload" title="点击上传头像">
+                        <div class="avatar-content" id="avatarContent">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                                <circle cx="12" cy="8" r="4" />
+                                <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                            </svg>
+                            <img id="avatarImg" src="" alt="头像" style="display:none;" />
+                        </div>
+                        <div class="avatar-hint">点击更换</div>
+                        <div class="avatar-badge">✎</div>
+                    </div>
+                    <input type="file" id="avatarInput" accept="image/*" style="display:none;" />
+                    <div class="pname-wrap">
+                        <div class="pname" id="profileName" contenteditable="true" spellcheck="false">ZIH</div>
+                        <span class="edit-hint">点击编辑名字</span>
+                    </div>
+                    <div class="pbio">这是我的博客，分享技术与生活的点点滴滴</div>
+                    <div class="pstats">
+                        <div><b id="total-articles">0</b><span>文章</span></div>
+                        <div><b>23</b><span>标签</span></div>
+                        <div><b>41</b><span>分类</span></div>
+                    </div>
+                    <div class="psocial">
+                        <a href="#" aria-label="GitHub">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.5v-1.75c-2.78.62-3.37-1.36-3.37-1.36-.46-1.2-1.11-1.52-1.11-1.52-.91-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.34 1.12 2.91.86.09-.66.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.04 1.03-2.76-.1-.26-.45-1.31.1-2.72 0 0 .84-.28 2.75 1.05a9.3 9.3 0 0 1 5 0c1.9-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.46.1 2.72.64.72 1.03 1.64 1.03 2.76 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9v2.82c0 .28.18.6.69.5C19.13 20.6 22 16.77 22 12.25 22 6.58 17.52 2 12 2Z" />
+                            </svg>
+                        </a>
+                        <a href="#" aria-label="RSS">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2 2 7l10 5 10-5-10-5Zm0 8L2 15l10 5 10-5-10-5Z" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="card sidebox">
+                    <h4>🔥 热门文章</h4>
+                    <div id="hot-posts"></div>
+                </div>
+                <div class="card sidebox">
+                    <h4>📌 最近发布</h4>
+                    <div id="recent-posts"></div>
+                </div>
+
+                <div class="card quote-card">
+                    <h4>💬 今日一言</h4>
+                    <p class="daily-quote" id="dailyQuote">加载中…</p>
+                    <button type="button" class="quote-refresh" id="quoteRefresh" title="换一句">换一句</button>
+                </div>
+
+                <div class="card music-card" id="musicCard">
+                    <button type="button" class="music-float-disc" id="musicFloatDisc" title="打开音乐播放器" aria-label="打开音乐播放器">
+                        <span class="music-disc-groove"></span>
+                        <span class="music-disc-note">♪</span>
+                    </button>
+                    <div class="music-panel-head">
+                        <h4>🎵 音乐播放器</h4>
+                        <button type="button" class="music-panel-close" id="musicPanelClose" title="收起音乐播放器">×</button>
+                    </div>
+                    <div class="music-upload-area" id="musicUploadArea">
+                        <span>点击上传音乐</span>
+                        <input type="file" id="musicInput" accept="audio/*" style="display:none;" />
+                    </div>
+                    <div class="music-controls" id="musicControls">
+                        <audio id="audioPlayer" loop style="display:none;"></audio>
+                        <div class="row">
+                            <button class="btn-play" id="playBtn">▶ 播放</button>
+                            <span class="music-status" id="musicStatus">未加载</span>
+                            <span class="music-time" id="musicTime">00:00 / 00:00</span>
+                        </div>
+                        <div class="music-progress" id="progressBar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="row" style="margin-top:6px;">
+                            <div class="music-volume">
+                                <span>🔊</span>
+                                <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.8" />
+                            </div>
+                            <span class="spacer"></span>
+                            <button type="button" class="loop-btn active" id="loopBtn" title="循环播放">🔁</button>
+                            <button class="delete-btn" id="deleteMusicBtn" title="删除音乐" style="font-size:13px;">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card ai-card">
+                    <h4>🤖 AI · 在线客服</h4>
+                    <div class="ai-mode-toggle">
+                        <button class="mode-btn active" data-mode="ai">🤖 AI</button>
+                        <button class="mode-btn" data-mode="human">👤 人工</button>
+                    </div>
+                    <div class="ai-chat-box" id="aiChatBox">
+                        <div class="msg bot">你好！我是 AI 助手，有什么可以帮助你的？</div>
+                    </div>
+                    <div class="ai-input-row">
+                        <input type="text" id="aiInput" placeholder="输入消息..." autocomplete="off" />
+                        <button type="button" id="aiSendBtn" onclick="window.aiSend && window.aiSend(event)">发送</button>
+                    </div>
+                    <div class="ai-status" id="aiStatus">当前模式：AI 自动回复</div>
+                </div>
+
+                <div class="card data-card">
+                    <h4>💾 数据管理</h4>
+                    <div class="data-actions">
+                        <button class="btn-export" id="exportDataBtn">📤 导出数据</button>
+                        <button class="btn-import" id="importDataBtn">📥 导入数据</button>
+                        <button class="btn-export" id="exportRssBtn" type="button" style="background:#e8863a;">📡 导出 RSS</button>
+                        <input type="file" id="importFileInput" accept=".json" style="display:none;" />
+                    </div>
+                    <div class="data-hint">
+                        💡 导出 JSON 备份；RSS 可订阅。也可从下方粘贴远程 JSON 地址同步。
+                    </div>
+                    <div class="cloud-sync-row">
+                        <input type="url" id="cloudJsonUrl" placeholder="远程 JSON 地址（如 Gist raw）" />
+                        <button type="button" class="btn-import" id="cloudPullBtn">☁️ 拉取</button>
+                    </div>
+                </div>
+
+                <div class="card data-card">
+                    <h4>📊 访问统计</h4>
+                    <div class="visit-stats" id="visitStats">
+                        <div><b id="statToday">0</b><span>今日</span></div>
+                        <div><b id="statTotal">0</b><span>累计</span></div>
+                        <div><b id="statPosts">0</b><span>文章</span></div>
+                    </div>
+                    <div class="data-hint">仅统计本机浏览器访问（localStorage）</div>
+                </div>
+
+                <div class="card theme-card">
+                    <h4>🎨 主题切换</h4>
+                    <div class="theme-grid" id="themeGrid">
+                        <button class="theme-btn active" data-theme="light" title="白天">
+                            <span class="theme-dot" style="background:#f4f5f7;border-color:#eaebee;"></span>
+                            <span class="theme-name">☀️ 白天</span>
+                        </button>
+                        <button class="theme-btn" data-theme="dark" title="黑夜">
+                            <span class="theme-dot" style="background:#1a1a1e;border-color:#2a2a30;"></span>
+                            <span class="theme-name">🌙 黑夜</span>
+                        </button>
+                        <button class="theme-btn" data-theme="warm" title="暖阳">
+                            <span class="theme-dot" style="background:#fdf6ee;border-color:#f0e6d8;"></span>
+                            <span class="theme-name">🌅 暖阳</span>
+                        </button>
+                        <button class="theme-btn" data-theme="forest" title="森林">
+                            <span class="theme-dot" style="background:#eef5ee;border-color:#d8e8d8;"></span>
+                            <span class="theme-name">🌲 森林</span>
+                        </button>
+                        <button class="theme-btn" data-theme="ocean" title="海洋">
+                            <span class="theme-dot" style="background:#eef4f8;border-color:#d8e4ec;"></span>
+                            <span class="theme-name">🌊 海洋</span>
+                        </button>
+                        <button class="theme-btn" data-theme="sakura" title="樱花">
+                            <span class="theme-dot" style="background:#fdf0f0;border-color:#f0d8d8;"></span>
+                            <span class="theme-name">🌸 樱花</span>
+                        </button>
+                        <button class="theme-btn" data-theme="violet" title="紫罗兰">
+                            <span class="theme-dot" style="background:#f4eef8;border-color:#e8d8ec;"></span>
+                            <span class="theme-name">💜 紫罗兰</span>
+                        </button>
+                        <button class="theme-btn" data-theme="system" title="跟随系统">
+                            <span class="theme-dot" style="background:linear-gradient(135deg,#f4f5f7 50%,#1a1a1e 50%);border-color:#9a9da5;"></span>
+                            <span class="theme-name">💻 系统</span>
+                        </button>
+                    </div>
+                    <div class="theme-current" id="themeCurrent">当前主题：<strong>☀️ 白天</strong></div>
+                    <label class="holiday-toggle"><input type="checkbox" id="holidayThemeToggle" checked /> 节日自动换肤</label>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main>
+            <div id="blog-content" class="active">
+                <div class="search-bar" id="searchBar">
+                    <div class="search-input-wrap">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input type="text" id="searchInput" placeholder="搜索标题、分类、摘要、正文..." autocomplete="off" />
+                        <button type="button" class="search-clear" id="searchClear" title="清除" style="display:none;">✕</button>
+                    </div>
+                    <span class="search-hint" id="searchHint"></span>
+                </div>
+                <div class="toolbar">
+                    <button class="btn-publish" id="openPublishBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                        </svg>
+                        发布新内容
+                    </button>
+                    <div class="toolbar-right">
+                        <select id="sortSelect" class="sort-select" title="排序">
+                            <option value="newest">最新</option>
+                            <option value="likes">按点赞</option>
+                            <option value="views">按阅读</option>
+                        </select>
+                        <button type="button" class="pill" id="draftBoxBtn">📝 草稿箱 <span id="draftCount">0</span></button>
+                        <button type="button" class="pill" id="hotListBtn">🔥 热门</button>
+                    </div>
+                    <div class="pillbar" id="pillbar"></div>
+                </div>
+
+                <div class="featured" id="featuredCards">
+                    <div class="fcard dark1" data-featured-id="notice">
+                        <div class="fcard-tools">
+                            <button type="button" class="fcard-tool" data-featured-edit="notice" title="自定义">✎</button>
+                            <button type="button" class="fcard-tool" data-featured-pin="notice" title="置顶">📌</button>
+                        </div>
+                        <span class="tag" data-featured-field="tag">置顶</span>
+                        <div class="big" data-featured-field="title">博客须知</div>
+                        <div class="meta" data-featured-field="meta">发表于 2025-8-3 · 0 条评论</div>
+                    </div>
+                    <div class="fcard dark2" data-featured-id="roots">
+                        <div class="fcard-tools">
+                            <button type="button" class="fcard-tool" data-featured-edit="roots" title="自定义">✎</button>
+                            <button type="button" class="fcard-tool" data-featured-pin="roots" title="置顶">📌</button>
+                        </div>
+                        <span class="tag" data-featured-field="tag">英语体系 · 最新</span>
+                        <div class="big" data-featured-field="title">英语词根词缀系列</div>
+                        <div class="meta" data-featured-field="meta">第四小节 · 发表于 2 天前</div>
+                    </div>
+                </div>
+
+                <!-- 特色卡片自定义 -->
+                <div class="modal-overlay" id="featuredEditModal">
+                    <div class="modal featured-edit-modal">
+                        <div class="modal-header">
+                            <h3>自定义特色卡片</h3>
+                            <button type="button" class="close-btn" id="closeFeaturedEditBtn">✕</button>
+                        </div>
+                        <form id="featuredEditForm">
+                            <input type="hidden" id="featuredEditId">
+                            <label>卡片标题</label>
+                            <input type="text" id="featuredTitleInput" maxlength="40" required>
+                            <label>标签</label>
+                            <input type="text" id="featuredTagInput" maxlength="30">
+                            <label>副标题 / 说明</label>
+                            <input type="text" id="featuredMetaInput" maxlength="80">
+                            <label class="featured-check"><input type="checkbox" id="featuredPinnedInput"> 📌 置顶这张卡片</label>
+                            <div class="actions">
+                                <button type="button" class="btn-cancel" id="cancelFeaturedEditBtn">取消</button>
+                                <button type="submit" class="btn-submit">保存修改</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="grid" id="post-grid"></div>
+            </div>
+
+            <div id="gallery">
+                <div class="gallery-header">
+                    <div class="header-actions">
+                        <div>
+                            <h2>📷 预览集</h2>
+                            <p>上传图片；视频选择后会自动进入网页播放助手播放。也可嵌入 B 站或添加云盘链接（大文件推荐）</p>
+                        </div>
+                        <div class="gallery-upload-btns">
+                            <button class="btn-upload" id="uploadImageBtn">
+                                📤 上传图片
+                                <input type="file" id="imageInput" accept="image/*" multiple />
+                            </button>
+                            <button class="btn-upload btn-upload-video" id="uploadVideoBtn">
+                                🎬 上传并播放视频
+                                <input type="file" id="videoInput" accept="video/*,.mp4,.webm,.mov,.m4v,.ogv,.ogg,.mkv,.avi,.mpg,.mpeg,.ts,.mts,.m2ts,.3gp,.3g2,.flv,.f4v,.wmv" multiple />
+                            </button>
+                            <button class="btn-upload btn-upload-bili" id="addBiliBtn" type="button" onclick="window.openBiliModal && window.openBiliModal(event)">
+                                📺 嵌入 B 站
+                            </button>
+                            <button class="btn-upload btn-upload-cloud" id="addCloudBtn" type="button" onclick="window.openCloudModal && window.openCloudModal(event)">
+                                ☁️ 云盘
+                            </button>
+                            <button class="btn-upload" id="syncGalleryBtn" type="button" onclick="window.syncGalleryFromRepo && window.syncGalleryFromRepo()" style="background:#6a6d75;">
+                                🔄 同步仓库图集
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="gallery-filters" id="galleryFilters">
+                    <button type="button" class="pill active" data-media="all">全部</button>
+                    <button type="button" class="pill" data-media="image">仅图片</button>
+                    <button type="button" class="pill" data-media="video">仅视频</button>
+                    <button type="button" class="pill" data-media="bilibili">仅 B 站</button>
+                    <button type="button" class="pill" data-media="cloud">仅云盘</button>
+                </div>
+                <div class="gallery-grid" id="gallery-grid"></div>
+            </div>
+
+            <div id="personal">
+                <div class="personal-header">
+                    <div class="avatar-large">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <circle cx="12" cy="8" r="4" />
+                            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                        </svg>
+                    </div>
+                    <h2>ZIH</h2>
+                    <div class="bio">全栈开发者 · 热爱技术与生活</div>
+                    <div class="tags">
+                        <span># 前端</span>
+                        <span># 后端</span>
+                        <span># 英语</span>
+                        <span># 摄影</span>
+                    </div>
+                </div>
+                <div class="community-section social-chat-section">
+                    <div class="community-header">
+                        <div>
+                            <h3>💬 聊天中心</h3>
+                            <p class="community-desc">群组、私聊式访客大厅统一在这里交流；聊天记录保存在当前浏览器本地。</p>
+                        </div>
+                        <button type="button" class="btn-add-mini" id="addGroupBtn">➕ 创建群组</button>
+                    </div>
+                    <div class="chat-layout chat-center-layout">
+                        <aside class="chat-list" id="chat-list"></aside>
+                        <section class="chat-window">
+                            <div class="chat-empty" id="chat-empty">选择一个聊天频道开始交流</div>
+                            <div id="chat-active" style="display:none;height:100%;">
+                                <div class="chat-head">
+                                    <div><strong id="chat-title">聊天</strong><span id="chat-meta">本地聊天</span></div>
+                                    <div class="chat-head-actions">
+                                        <button type="button" id="chatManageBtn" class="chat-head-btn" style="display:none;">⚙️ 群设置</button>
+                                        <button type="button" id="chatClearBtn" class="chat-head-btn">清空记录</button>
+                                    </div>
+                                </div>
+                                <div class="chat-messages" id="chat-messages"></div>
+                                <form class="chat-compose" id="chatForm">
+                                    <input id="chatName" type="text" placeholder="你的昵称" maxlength="24" />
+                                    <input id="chatInput" type="text" placeholder="输入消息…" maxlength="500" autocomplete="off" required />
+                                    <button type="submit">发送</button>
+                                </form>
+                            </div>
+                        </section>
+                    </div>
+                    <div class="chat-center-tip">👋 <strong>访客大厅</strong>：所有访客都可以在这里留言聊天；<strong>群组</strong>：创建自己的主题群并在对应频道交流。</div>
+                </div>
+
+                <div class="community-section" style="margin-top:26px;">
+                    <div class="community-header">
+                        <div>
+                            <h3>📌 贴吧</h3>
+                            <p class="community-desc">保留原有贴吧入口</p>
+                        </div>
+                        <button type="button" class="btn-add-mini" id="addTiebaBtn">➕ 添加贴吧</button>
+                    </div>
+                    <div class="community-grid" id="tieba-grid"></div>
+                </div>
+
+
+            </div>
+
+            <div id="links">
+                <div class="about-header">
+                    <div>
+                        <h2>🔗 友情链接</h2>
+                        <p style="color:var(--ink-soft);font-size:14px;">交换友链，发现更多有趣的站点</p>
+                    </div>
+                    <button class="btn-add-contact" id="addLinkBtn" type="button">➕ 添加友链</button>
+                </div>
+                <div class="community-grid" id="links-grid"></div>
+            </div>
+
+            <div id="about">
+                <div class="about-header">
+                    <div>
+                        <h2>📇 联系方式</h2>
+                        <p style="color:var(--ink-soft);font-size:14px;">管理你的社交联系方式，上传二维码或图片</p>
+                    </div>
+                    <button class="btn-add-contact" id="addContactBtn">➕ 添加联系方式</button>
+                </div>
+                <div class="contact-grid" id="contact-grid"></div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ===== 发布模态框（增强版） ===== -->
+    <div class="modal-overlay" id="publishModal">
+        <div class="modal">
+            <h2 id="publishModalTitle">✏️ 发布新内容</h2>
+            <p class="sub">支持写文章、新闻，富文本编辑，封面图，草稿</p>
+            <form id="publishForm">
+                <input type="hidden" id="editPostId" value="" />
+                <!-- 类型切换 -->
+                <label>内容类型</label>
+                <div class="type-toggle">
+                    <button type="button" class="type-btn active" data-type="article">📝 文章</button>
+                    <button type="button" class="type-btn" data-type="news">📰 新闻</button>
+                </div>
+
+                <label>标题 <span class="required">*</span></label>
+                <input type="text" id="postTitle" placeholder="输入标题..." required />
+
+                <label>分类 <span class="required">*</span></label>
+                <input type="text" id="postCategory" placeholder="例如：前端技术" required />
+
+                <label>摘要（选填）</label>
+                <textarea id="postSummary" placeholder="简短描述内容"></textarea>
+
+                <label>封面图（选填）</label>
+                <div class="cover-upload-row">
+                    <input type="file" id="coverInput" accept="image/*" />
+                    <button type="button" class="btn-cancel" id="clearCoverBtn">清除封面</button>
+                </div>
+                <div class="cover-preview" id="coverPreview" style="display:none;">
+                    <img id="coverPreviewImg" alt="封面预览" />
+                </div>
+                <input type="hidden" id="coverImageData" value="" />
+
+                <label class="draft-label"><input type="checkbox" id="saveAsDraft" /> 保存为草稿（不公开在列表主视图，可在草稿箱查看）</label>
+
+                <label>正文内容 <span class="required">*</span></label>
+                <div class="editor-toolbar" id="editorToolbar">
+                    <button type="button" data-cmd="bold" title="加粗"><b>B</b></button>
+                    <button type="button" data-cmd="italic" title="斜体"><i>I</i></button>
+                    <button type="button" data-cmd="underline" title="下划线"><u>U</u></button>
+                    <span class="separator"></span>
+                    <button type="button" data-cmd="h2" title="标题2">H2</button>
+                    <button type="button" data-cmd="h3" title="标题3">H3</button>
+                    <span class="separator"></span>
+                    <button type="button" data-cmd="ul" title="无序列表">•</button>
+                    <button type="button" data-cmd="ol" title="有序列表">1.</button>
+                    <span class="separator"></span>
+                    <button type="button" data-cmd="image" title="插入图片">🖼️</button>
+                    <button type="button" data-cmd="link" title="插入链接">🔗</button>
+                    <button type="button" data-cmd="quote" title="引用">❝</button>
+                    <span class="separator"></span>
+                    <button type="button" data-cmd="undo" title="撤销">↩</button>
+                    <button type="button" data-cmd="redo" title="重做">↪</button>
+                    <span class="separator"></span>
+                    <button type="button" data-cmd="clear" title="清除格式">✕</button>
+                </div>
+                <div class="editor-content" id="editorContent" contenteditable="true" placeholder="在这里写正文..."></div>
+                <div style="font-size:11px;color:var(--ink-faint);margin-top:4px;text-align:right;">支持粘贴图片、拖拽上传图片</div>
+
+                <label>封面颜色</label>
+                <div class="color-options">
+                    <label><input type="radio" name="coverColor" value="teal" checked /> <span class="color-swatch" style="background:var(--teal);"></span> 青绿</label>
+                    <label><input type="radio" name="coverColor" value="dark" /> <span class="color-swatch" style="background:#1d1d21;"></span> 深色</label>
+                    <label><input type="radio" name="coverColor" value="amber" /> <span class="color-swatch" style="background:#e8863a;"></span> 琥珀</label>
+                    <label><input type="radio" name="coverColor" value="violet" /> <span class="color-swatch" style="background:#6f6bd6;"></span> 紫罗兰</label>
+                    <label><input type="radio" name="coverColor" value="rose" /> <span class="color-swatch" style="background:#e8436e;"></span> 玫瑰</label>
+                    <label><input type="radio" name="coverColor" value="sky" /> <span class="color-swatch" style="background:#3b9ae1;"></span> 天蓝</label>
+                </div>
+
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closePublishBtn">取消</button>
+                    <button type="submit" class="btn-submit" id="publishSubmitBtn">发布</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 文章详情查看模态框 ===== -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal">
+            <div class="detail-header">
+                <div>
+                    <div class="meta">
+                        <span class="badge" id="detailBadge">📝 文章</span>
+                        <span id="detailCategory"># 分类</span>
+                        <span style="margin-left:10px;" id="detailDate">2026-9-1</span>
+                        <span style="margin-left:10px;">👁️ <span id="detailViews">0</span></span>
+                    </div>
+                    <h3 id="detailTitle">标题</h3>
+                </div>
+                <button class="close-btn" id="closeDetailBtn" style="font-size:24px;background:none;border:none;color:var(--ink-faint);cursor:pointer;">✕</button>
+            </div>
+            <div class="detail-content" id="detailContent">
+                内容加载中...
+            </div>
+            <div class="actions" style="margin-top:16px;justify-content:flex-end;display:flex;gap:10px;">
+                <button type="button" class="btn-submit" id="editFromDetailBtn">✏️ 编辑</button>
+                <button class="btn-cancel" id="closeDetailBtn2">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 添加联系方式模态框 ===== -->
+    <div class="modal-overlay" id="addContactModal">
+        <div class="modal">
+            <h2>📇 添加联系方式</h2>
+            <p class="sub">选择类型并填写标签</p>
+            <form id="addContactForm">
+                <label>类型 <span class="required">*</span></label>
+                <select id="contactType" required>
+                    <option value="wechat">微信</option>
+                    <option value="douyin">抖音</option>
+                </select>
+                <label>标签 <span class="required">*</span></label>
+                <input type="text" id="contactLabel" placeholder="例如：微信、抖音" required />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeAddContactBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 添加友链 ===== -->
+    <div class="modal-overlay" id="linkModal">
+        <div class="modal">
+            <h2>🔗 添加友链</h2>
+            <p class="sub">填写站点名称与网址</p>
+            <form id="linkForm">
+                <label>名称 <span class="required">*</span></label>
+                <input type="text" id="linkName" placeholder="站点名称" required />
+                <label>网址 <span class="required">*</span></label>
+                <input type="url" id="linkUrl" placeholder="https://" required />
+                <label>简介（选填）</label>
+                <input type="text" id="linkDesc" placeholder="一句话介绍" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeLinkBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 添加贴吧 ===== -->
+    <div class="modal-overlay" id="tiebaModal">
+        <div class="modal">
+            <h2>📌 添加贴吧</h2>
+            <p class="sub">填写贴吧名称和链接</p>
+            <form id="tiebaForm">
+                <label>贴吧名称 <span class="required">*</span></label>
+                <input type="text" id="tiebaName" placeholder="例如：编程吧" required />
+                <label>链接 <span class="required">*</span></label>
+                <input type="url" id="tiebaUrl" placeholder="https://tieba.baidu.com/f?kw=..." required />
+                <label>简介（选填）</label>
+                <input type="text" id="tiebaDesc" placeholder="一句话介绍" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeTiebaBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 群聊独立窗口 ===== -->
+    <div class="modal-overlay" id="chatModal">
+        <div class="modal chat-modal">
+            <h2>💬 群聊</h2>
+            <p class="sub">本地聊天演示：消息只保存在当前浏览器，不上传服务器。</p>
+            <div class="chat-modal-body" id="chatModalBody"></div>
+            <div class="actions"><button type="button" class="btn-cancel" id="closeChatBtn">关闭</button></div>
+        </div>
+    </div>
+
+    <!-- ===== 添加社群 ===== -->
+    <div class="modal-overlay" id="groupModal">
+        <div class="modal">
+            <h2>👥 添加社群</h2>
+            <p class="sub">QQ 群、微信群、Discord、Telegram 等</p>
+            <form id="groupForm">
+                <label>类型</label>
+                <select id="groupType">
+                    <option value="qq">QQ 群</option>
+                    <option value="wechat">微信群</option>
+                    <option value="discord">Discord</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="other">其他</option>
+                </select>
+                <label>名称 <span class="required">*</span></label>
+                <input type="text" id="groupName" placeholder="例如：技术交流群" required />
+                <label>链接或号 <span class="required">*</span></label>
+                <input type="text" id="groupLink" placeholder="群链接 / 群号 / 邀请链接" required />
+                <label>简介（选填）</label>
+                <input type="text" id="groupDesc" placeholder="一句话介绍" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeGroupBtn">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 嵌入 B 站视频 ===== -->
+    <div class="modal-overlay" id="biliModal">
+        <div class="modal">
+            <h2>📺 嵌入 B 站视频</h2>
+            <p class="sub">粘贴 B 站视频链接或 BV 号，无需把大文件传到 GitHub</p>
+            <form id="biliForm">
+                <label>视频链接或 BV 号 <span class="required">*</span></label>
+                <input type="text" id="biliInput" placeholder="例如：https://www.bilibili.com/video/BVxxxxxx 或 BVxxxxxx" required />
+                <label>标题（选填）</label>
+                <input type="text" id="biliTitle" placeholder="默认使用 BV 号" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeBiliBtn" onclick="window.closeBiliModal && window.closeBiliModal()">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 云盘 / 本地云盘 ===== -->
+    <div class="modal-overlay" id="cloudModal">
+        <div class="modal cloud-modal">
+            <h2>☁️ 云盘</h2>
+            <p class="sub">连接电脑上的云盘文件夹；如果文件夹由 OneDrive / Google Drive / Dropbox 等同步，也会随系统自动同步。</p>
+
+            <div class="local-cloud-box">
+                <div class="local-cloud-head">
+                    <div>
+                        <strong>💻 本地云盘文件夹</strong>
+                        <div class="local-cloud-status" id="localCloudStatus">尚未连接文件夹</div>
+                    </div>
+                    <span class="local-cloud-dot" id="localCloudDot"></span>
+                </div>
+                <div class="local-cloud-actions">
+                    <button type="button" class="btn-submit" id="chooseCloudFolderBtn">📁 选择文件夹</button>
+                    <button type="button" class="btn-submit" id="scanCloudFolderBtn">🔎 扫描视频/图片</button>
+                    <button type="button" class="btn-cancel" id="clearCloudFolderBtn">断开</button>
+                </div>
+                <div class="local-cloud-hint">连接后可扫描本地云盘。支持 MP4 / WebM / MOV / MKV / AVI / TS / MTS / M2TS / FLV / WMV 等。浏览器能解码的格式会直接播放；不需要安装、运行或连接任何 Windows 播放助手。</div>
+                <div class="web-player-box" id="webPlayerBox">
+                    <div class="web-player-head">
+                        <div><strong>🎬 网页播放助手</strong><span>浏览器内直接播放 · 手机 / 电脑通用</span></div>
+                        <span class="web-player-ready">● 已就绪</span>
+                    </div>
+                    <div class="web-player-controls">
+                        <label class="web-file-btn">📁 选择本地文件<input id="webPlayerFileInput" type="file" accept="video/*,audio/*" hidden></label>
+                        <input id="webPlayerUrlInput" type="url" placeholder="粘贴视频 / 音频直链（MP4、WebM、MP3 等）" />
+                        <button type="button" class="btn-submit" id="webPlayerUrlBtn">▶ 播放</button>
+                        <button type="button" class="btn-cancel" id="webPlayerClearBtn">清空</button>
+                    </div>
+                    <div class="web-player-screen" id="webPlayerScreen">
+                        <div class="web-player-empty">🎬<br><span>选择文件或粘贴直链开始播放</span></div>
+                    </div>
+                    <div class="web-player-info" id="webPlayerInfo">不会上传文件；选择本地文件后，仅在当前浏览器中读取。</div>
+                </div>
+            </div>
+
+            <div class="cloud-divider"><span>或添加远程网盘分享链接</span></div>
+            <form id="cloudForm">
+                <label>网盘类型</label>
+                <select id="cloudPan">
+                    <option value="百度网盘">百度网盘</option>
+                    <option value="阿里云盘">阿里云盘</option>
+                    <option value="夸克网盘">夸克网盘</option>
+                    <option value="迅雷云盘">迅雷云盘</option>
+                    <option value="其他">其他</option>
+                </select>
+                <label>分享链接 <span class="required">*</span></label>
+                <input type="text" id="cloudInput" placeholder="例如：https://pan.baidu.com/s/xxxxxx" required />
+                <label>提取码（选填）</label>
+                <input type="text" id="cloudCode" placeholder="例如：a1b2" maxlength="12" />
+                <label>标题（选填）</label>
+                <input type="text" id="cloudTitle" placeholder="默认使用网盘类型" />
+                <div class="actions">
+                    <button type="button" class="btn-cancel" id="closeCloudBtn" onclick="window.closeCloudModal && window.closeCloudModal()">取消</button>
+                    <button type="submit" class="btn-submit">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== 媒体预览（图片/视频）模态框 ===== -->
+    <div class="modal-overlay" id="mediaModal">
+        <div class="modal media-modal">
+            <div class="media-modal-header">
+                <h3 id="mediaModalTitle">预览</h3>
+                <div class="media-modal-actions">
+                    <button type="button" class="media-web-btn" id="mediaWebPlayerBtn" title="在网页播放助手中打开" style="display:none;">🎬 网页播放助手</button>
+                    <button type="button" class="media-fs-btn" id="mediaFullscreenBtn" title="全屏">⛶ 全屏</button>
+                    <button type="button" class="close-btn" id="closeMediaBtn" style="font-size:22px;background:none;border:none;color:var(--ink-faint);cursor:pointer;">✕</button>
+                </div>
+            </div>
+            <div class="media-nav-row">
+                <button type="button" class="media-nav-btn" id="mediaPrevBtn">‹ 上一张</button>
+                <button type="button" class="media-nav-btn" id="mediaNextBtn">下一张 ›</button>
+            </div>
+            <div class="media-modal-body" id="mediaModalBody">
+                <!-- 动态插入 img 或 video -->
+            </div>
+            <p class="media-modal-tip">点击视频可播放/暂停 · 点「全屏」进入全屏播放</p>
+        </div>
+    </div>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="site-footer">
+        <p>
+            © 2026 <a href="/">ZIH</a> ·
+            由 ❤️ 与 ☕ 驱动 ·
+            托管于 <a href="https://pages.github.com" target="_blank" rel="noopener">GitHub Pages</a>
+        </p>
+    </footer>
+
+    <!-- ===== RIGHT RAIL ===== -->
+    <div class="rail">
+        <a href="#" aria-label="回到顶部" class="rail-top" id="railTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <polyline points="19 12 12 5 5 12" />
+            </svg>
+        </a>
+        <a href="#" aria-label="设置" id="railSettingsBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06A2 2 0 1 1 7.03 4.24l.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.55 1Z" />
+            </svg>
+        </a>
+        <a href="#" aria-label="评论" id="railCommentBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+        </a>
+        <a href="#" aria-label="图片">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="m21 15-5-5L5 21" />
+            </svg>
+        </a>
+    </div>
+
+    <!-- ===== 右下角快捷按钮设置 ===== -->
+    <div class="rail-settings-panel" id="railSettingsPanel" aria-hidden="true">
+        <div class="rail-settings-head">
+            <strong>快捷按钮</strong>
+            <button type="button" id="closeRailSettings" aria-label="关闭">✕</button>
+        </div>
+        <label><input type="checkbox" id="toggleRailTop"> <span>显示「向上的箭头」</span></label>
+        <label><input type="checkbox" id="toggleRailSettings"> <span>显示「⚙️ 设置」</span></label>
+        <label><input type="checkbox" id="toggleRailComment"> <span>显示「评论」</span></label>
+        <p>关闭后会立即隐藏对应按钮，设置会自动保存。</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ===== JavaScript ===== -->
+    
+    <!-- 移动端底部导航 -->
+    <nav class="bottom-nav" id="bottomNav">
+        <button type="button" class="bnav-item active" data-tab="blog" aria-label="文章">
+            <span class="bnav-icon">📝</span>
+            <span class="bnav-label">文章</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="gallery" aria-label="预览">
+            <span class="bnav-icon">📷</span>
+            <span class="bnav-label">预览</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="personal" aria-label="留言">
+            <span class="bnav-icon">💬</span>
+            <span class="bnav-label">留言</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="about" aria-label="关于">
+            <span class="bnav-icon">📇</span>
+            <span class="bnav-label">关于</span>
+        </button>
+        <button type="button" class="bnav-item" data-tab="links" aria-label="友链">
+            <span class="bnav-icon">🔗</span>
+            <span class="bnav-label">友链</span>
+        </button>
+    </nav>
+
+    <script src="js/app.js"></script>
+    <script src="js/web-player.js"></script>
+    <script src="js/navigation-fix.js"></script>
+
+
+</body>
+</html>
