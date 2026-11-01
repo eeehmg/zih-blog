@@ -3844,3 +3844,25 @@
         z-index: 2050 !important;
     }
 }
+
+
+/* ===== v6.6：音乐唱片移至右下角快捷栏旁，与设置齿轮同一区域 ===== */
+#musicCard.music-card:not(.music-expanded) {
+    left: auto !important;
+    right: 62px !important;
+    bottom: 18px !important;
+    width: 48px !important; height: 48px !important; min-height: 48px !important;
+    z-index: 2050 !important;
+}
+#musicCard.music-card:not(.music-expanded) .music-float-disc { width:48px !important; height:48px !important; }
+#musicCard.music-card:not(.music-expanded) .music-disc-groove { inset:7px !important; }
+#musicCard.music-card:not(.music-expanded) .music-disc-note { width:18px !important; height:18px !important; font-size:12px !important; }
+#musicCard.music-card.music-expanded {
+    left:auto !important; right:62px !important; bottom:18px !important;
+    width:min(300px,calc(100vw - 78px)) !important; max-width:calc(100vw - 78px) !important;
+    z-index:2200 !important;
+}
+@media(max-width:700px) {
+  #musicCard.music-card:not(.music-expanded) { right:62px !important; bottom:18px !important; }
+  #musicCard.music-card.music-expanded { right:62px !important; bottom:18px !important; width:min(300px,calc(100vw - 78px)) !important; max-width:calc(100vw - 78px) !important; }
+}
