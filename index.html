@@ -184,8 +184,12 @@
                     </div>
                 </div>
 
-                <div class="card ai-card">
-                    <h4>🤖 AI · 在线客服</h4>
+                <button type="button" class="ai-float-entry" id="aiFloatEntry" aria-label="打开 ZIH AI 助手" title="ZIH AI 助手">
+                    <span class="ai-float-orbit">✦</span><span class="ai-float-label">AI</span>
+                </button>
+
+                <div class="card ai-card" id="aiServiceCard" aria-hidden="true">
+                    <div class="ai-float-head"><h4>🤖 ZIH AI · 在线助手</h4><button type="button" id="aiPanelClose" aria-label="关闭 AI 助手">×</button></div>
                     <div class="ai-mode-toggle">
                         <button class="mode-btn active" data-mode="ai">🤖 AI</button>
                         <button class="mode-btn" data-mode="human">👤 人工</button>

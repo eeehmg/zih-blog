@@ -2623,6 +2623,26 @@
         // ============================================================
         let currentMode = 'ai';
 
+        // AI 悬浮入口：保留原客服聊天逻辑，作为 ZIH AI 工作台统一入口。
+        (function bindAiFloatEntry() {
+            const entry = document.getElementById('aiFloatEntry');
+            const panel = document.getElementById('aiServiceCard');
+            const close = document.getElementById('aiPanelClose');
+            function setOpen(open) {
+                if (!panel) return;
+                panel.classList.toggle('ai-panel-open', !!open);
+                panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+                if (entry) entry.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (open) {
+                    const input = document.getElementById('aiInput');
+                    if (input) setTimeout(() => input.focus(), 80);
+                }
+            }
+            if (entry) entry.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setOpen(!panel.classList.contains('ai-panel-open')); });
+            if (close) close.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); setOpen(false); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });
+        })();
+
         function getAiEls() {
             return {
                 chatBox: document.getElementById('aiChatBox'),

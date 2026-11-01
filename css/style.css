@@ -3901,3 +3901,46 @@
     letter-spacing: .3px;
 }
 .rail > #railAiWorkbenchBtn:active { transform: scale(.94); }
+
+
+/* ===== v6.7.1 手机端音乐唱片 + ZIH AI 双悬浮入口 ===== */
+#musicCard.music-card:not(.music-expanded) {
+  display:block !important; visibility:visible !important; opacity:1 !important;
+  position:fixed !important; left:auto !important; right:62px !important; bottom:18px !important;
+  width:48px !important; height:48px !important; min-height:48px !important;
+  z-index:2051 !important; pointer-events:auto !important;
+}
+#musicCard.music-card:not(.music-expanded) .music-float-disc {
+  display:flex !important; visibility:visible !important; opacity:1 !important;
+  width:48px !important; height:48px !important; pointer-events:auto !important;
+}
+.ai-float-entry {
+  position:fixed !important; right:62px !important; bottom:76px !important;
+  width:48px !important; height:48px !important; padding:0 !important;
+  display:flex !important; align-items:center !important; justify-content:center !important;
+  border:1px solid rgba(255,255,255,.38) !important; border-radius:50% !important;
+  color:#fff !important; background:radial-gradient(circle at 32% 25%,#5de3d0,#147d78 68%,#104b50) !important;
+  box-shadow:0 7px 22px rgba(0,0,0,.28),inset 0 0 0 4px rgba(255,255,255,.12) !important;
+  z-index:2052 !important; cursor:pointer !important; touch-action:manipulation !important;
+}
+.ai-float-orbit { font-size:21px; line-height:1; text-shadow:0 1px 8px rgba(255,255,255,.55); }
+.ai-float-label { position:absolute; right:5px; bottom:4px; padding:1px 4px; border-radius:6px; background:#073b3a; color:#b9fff1; font:800 8px/11px Arial,sans-serif; }
+.ai-float-entry:active { transform:scale(.94); }
+.ai-card {
+  display:none !important; position:fixed !important; right:62px !important; bottom:132px !important;
+  width:min(320px,calc(100vw - 78px)) !important; max-height:min(68vh,520px) !important;
+  overflow:auto !important; margin:0 !important; padding:14px !important;
+  border:1px solid var(--line) !important; border-radius:18px !important;
+  background:var(--panel) !important; box-shadow:0 16px 45px rgba(0,0,0,.24) !important;
+  z-index:2300 !important;
+}
+.ai-card.ai-panel-open { display:block !important; }
+.ai-float-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.ai-float-head h4 { margin:0 !important; }
+#aiPanelClose { width:28px; height:28px; flex:none; border:0; border-radius:50%; background:var(--input-bg); color:var(--ink-soft); font-size:20px; line-height:1; }
+@media(max-width:700px) {
+  #musicCard.music-card:not(.music-expanded) { right:14px !important; bottom:calc(82px + env(safe-area-inset-bottom,0px)) !important; }
+  #musicCard.music-card.music-expanded { right:14px !important; bottom:calc(82px + env(safe-area-inset-bottom,0px)) !important; width:min(300px,calc(100vw - 28px)) !important; max-width:calc(100vw - 28px) !important; }
+  .ai-float-entry { right:14px !important; bottom:calc(138px + env(safe-area-inset-bottom,0px)) !important; }
+  .ai-card { right:14px !important; bottom:calc(194px + env(safe-area-inset-bottom,0px)) !important; width:min(320px,calc(100vw - 28px)) !important; max-width:calc(100vw - 28px) !important; }
+}
