@@ -868,6 +868,15 @@
     <script src="js/web-player.js"></script>
     <script src="js/navigation-fix.js"></script>
 
+    <!-- 将悬浮控件提升到 body，避免手机端侧栏/卡片容器的 transform 或 overflow 改变 fixed 定位基准。 -->
+    <script>
+    (function () {
+      ['musicCard', 'aiFloatEntry', 'aiServiceCard'].forEach(function (id) {
+        var node = document.getElementById(id);
+        if (node && node.parentElement !== document.body) document.body.appendChild(node);
+      });
+    })();
+    </script>
 
 </body>
 </html>

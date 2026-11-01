@@ -3944,3 +3944,38 @@
   .ai-float-entry { right:14px !important; bottom:calc(138px + env(safe-area-inset-bottom,0px)) !important; }
   .ai-card { right:14px !important; bottom:calc(194px + env(safe-area-inset-bottom,0px)) !important; width:min(320px,calc(100vw - 28px)) !important; max-width:calc(100vw - 28px) !important; }
 }
+
+
+/* ===== v6.7.2：手机悬浮入口与设置齿轮同排对齐 =====
+/* 控件已提升到 body，fixed 坐标以整个视口为基准，不再受内容栏定位影响。 */
+@media (max-width: 860px) {
+  :root { --zih-float-bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
+  #musicCard.music-card:not(.music-expanded) {
+    position: fixed !important; left: auto !important; right: 108px !important;
+    bottom: var(--zih-float-bottom) !important; width: 44px !important; height: 44px !important;
+    min-height: 44px !important; margin: 0 !important; padding: 0 !important;
+    border-radius: 50% !important; z-index: 2051 !important;
+  }
+  #musicCard.music-card:not(.music-expanded) .music-float-disc {
+    width: 44px !important; height: 44px !important; border-radius: 50% !important;
+  }
+  #musicCard.music-card:not(.music-expanded) .music-disc-groove { inset: 6px !important; }
+  #musicCard.music-card:not(.music-expanded) .music-disc-note { width: 17px !important; height: 17px !important; font-size: 11px !important; }
+  #musicCard.music-card.music-expanded {
+    position: fixed !important; left: auto !important; right: 10px !important;
+    bottom: calc(var(--zih-float-bottom) + 50px) !important;
+    width: min(300px, calc(100vw - 20px)) !important; max-width: calc(100vw - 20px) !important;
+    z-index: 2200 !important;
+  }
+  .ai-float-entry {
+    position: fixed !important; left: auto !important; right: 58px !important;
+    bottom: var(--zih-float-bottom) !important; width: 44px !important; height: 44px !important;
+    z-index: 2052 !important;
+  }
+  .ai-card {
+    position: fixed !important; left: auto !important; right: 10px !important;
+    bottom: calc(var(--zih-float-bottom) + 50px) !important;
+    width: min(320px, calc(100vw - 20px)) !important; max-width: calc(100vw - 20px) !important;
+    z-index: 2300 !important;
+  }
+}
