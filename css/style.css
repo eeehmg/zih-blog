@@ -3866,3 +3866,38 @@
   #musicCard.music-card:not(.music-expanded) { right:62px !important; bottom:18px !important; }
   #musicCard.music-card.music-expanded { right:62px !important; bottom:18px !important; width:min(300px,calc(100vw - 78px)) !important; max-width:calc(100vw - 78px) !important; }
 }
+
+/* ===== v6.6.1 修复：AI Workbench 入口在右下角快捷栏中显示 ===== */
+.rail > #railAiWorkbenchBtn {
+    display: flex !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: relative !important;
+    pointer-events: auto !important;
+    color: var(--teal, #18a999) !important;
+    border: 1px solid var(--teal, #18a999) !important;
+    background: var(--rail-bg, #fff) !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,.16) !important;
+    z-index: 1201 !important;
+}
+.rail > #railAiWorkbenchBtn svg {
+    width: 19px !important;
+    height: 19px !important;
+}
+.rail > #railAiWorkbenchBtn::after {
+    content: "AI";
+    position: absolute;
+    right: 0;
+    bottom: -5px;
+    padding: 1px 4px;
+    border-radius: 5px;
+    color: #fff;
+    background: var(--teal, #159b8d);
+    font: 700 8px/11px Arial, sans-serif;
+    letter-spacing: .3px;
+}
+.rail > #railAiWorkbenchBtn:active { transform: scale(.94); }

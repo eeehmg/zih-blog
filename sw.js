@@ -1,4 +1,4 @@
-const CACHE = 'zih-blog-v1';
+const CACHE = 'zih-blog-v6-6-1';
 const ASSETS = ['./', './index.html', './css/style.css', './js/app.js', './manifest.json'];
 
 self.addEventListener('install', (e) => {

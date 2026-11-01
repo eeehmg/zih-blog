@@ -1,0 +1,14 @@
+name = "zih-ai-backend"
+main = "worker/index.js"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zih-ai-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+# Comma-separated exact origins. Add your GitHub Pages origin before deployment.
+ALLOWED_ORIGINS = "https://eeehmg.github.io"
+MAX_MESSAGE_LENGTH = "2000"
